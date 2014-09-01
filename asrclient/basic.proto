@@ -1,0 +1,21 @@
+package BasicProtobuf;
+
+message ConnectionResponse
+{
+  required ResponseCode responseCode = 1;
+
+  required string sessionId = 2;
+
+  optional string message = 3;
+
+  enum ResponseCode {
+    OK = 200;
+    BadMessageFormatting = 400;
+    UnknownService = 404;
+    NotSupportedVersion = 405;
+    Timeout = 408;
+    ProtocolError = 410;
+    InternalError = 500;
+	}
+}
+

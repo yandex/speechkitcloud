@@ -1,0 +1,79 @@
+import "basic.proto";
+
+package VoiceProxyProtobuf;
+
+message ConnectionRequest
+{
+  optional int32 protocolVersion = 1 [default = 1];
+
+  // leave empty if you are not speechkit
+  required string speechkitVersion = 2;
+
+  required string serviceName = 3; // "asr_dictation", etc.
+
+  required string uuid = 4;
+
+  required string apiKey = 5;
+
+  required string applicationName = 6;
+
+  // vendor:model:type... user defined
+  required string device = 7;
+
+  // lat.lat,lan.lan
+  required string coords = 8;
+
+  // "general", "mapsyari", "freeform", "music"
+  required string topic = 9;
+
+  // "ru-RU"
+  required string lang = 10;
+
+  // "audio/x-speex", "audio/x-pcm;bit=16;rate=8000", etc.
+  required string format =11;
+
+  // enable punctuation mode for "freeform-dictation" topic
+  optional bool punctuation = 12 [default = true];
+}
+
+///////////////////////////////////////////////////////////////////////////
+
+message AddData
+{
+  optional bytes audioData = 1;
+
+  required bool lastChunk = 2;
+}
+
+///////////////////////////////////////////////////////////////////////////
+
+message Word
+{
+  required float confidence = 1;
+
+  required string value = 2;
+}
+
+message Result
+{
+  required float confidence = 1;
+
+  repeated Word words = 2;
+
+  optional string normalized = 3;
+}
+
+message AddDataResponse
+{
+  required BasicProtobuf.ConnectionResponse.ResponseCode responseCode = 1;
+
+  repeated Result recognition = 2;
+
+  // if true : recognition contains fully parsed N-best list (n results with n words)
+  // otherwise recognition contains just 1 result 1 word with current "partical result"
+  optional bool endOfUtt = 3 [default = false];
+
+  // how many AddData requests were merged for this response
+  optional int32 messagesCount = 4 [default = 1];
+}
+
