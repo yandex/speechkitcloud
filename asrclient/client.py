@@ -22,13 +22,18 @@ DEFAULT_FORMAT_VALUE = 'audio/x-pcm;bit=16;rate=16000'
 DEFAULT_CHUNK_SIZE_VALUE = 1024*32
 DEFAULT_RECONNECT_DELAY = 0.5
 DEFAULT_RECONNECT_RETRY_COUNT = 5
+DEFAULT_PENDING_LIMIT = 50
 
 
-def read_chunks_from_files(files, chunksize):
+def read_chunks_from_files(files, chunksize, start_from = 0, max_count = None):
+    count = 0
     for f in files:
         chunk = f.read(chunksize)
         while chunk:
-            yield chunk
+            if  start_from <= count:
+                if max_count is None or count < start_from + max_count:
+                    yield chunk
+            count += 1
             chunk = f.read(chunksize)
         f.close()
 
@@ -56,6 +61,7 @@ class ServerConnection(object):
 
         self.session_id = ""
         self.connect()
+
 
     def log(self, message):
         if self.logger is not None:
@@ -135,15 +141,21 @@ class ServerConnection(object):
         else:
             self.t.sendProtobuf(AddData(lastChunk=False, audioData=chunk))
 
+
     def get_utterance_if_ready(self):
-        result = self.t.recvProtobuf(AddDataResponse)
+        result = self.t.recvProtobufIfAny(AddDataResponse)
 
-        if result.responseCode != 200:
-            raise ServerError('Wrong response from server, status_code={0}'.format(
-                result.responseCode))
+        if result is not None:
+            if result.responseCode != 200:
+                raise ServerError('Wrong response from server, status_code={0}'.format(
+                    result.responseCode))
 
-        if result.endOfUtt and len(result.recognition) > 0:
-            return result.recognition[0].normalized.encode('utf-8')
+            if result.endOfUtt and len(result.recognition) > 0:
+                return result.recognition[0].normalized.encode('utf-8'), result.messagesCount
+            else:
+                return "", result.messagesCount
+        
+        return None, 0
 
 
 def recognize(chunks,
@@ -157,56 +169,89 @@ def recognize(chunks,
               topic='freeform',
               lang='ru-RU',
               reconnect_delay=DEFAULT_RECONNECT_DELAY,
-              reconnect_retry_count=DEFAULT_RECONNECT_RETRY_COUNT):
+              reconnect_retry_count=DEFAULT_RECONNECT_RETRY_COUNT,
+              pending_limit=DEFAULT_PENDING_LIMIT):
+
     
-    class State(object):
-        pass
+    class PendingRecognition(object):
+        def __init__(self):
+            self.logger = logging.getLogger('asrclient')
+            self.server = ServerConnection(host, port, key, app, service, topic, lang, format, self.logger)
+            self.unrecognized_chunks = []
+            self.retry_count = 0
+            self.pending_answers = 0
+            self.chunks_answered = 0
+            self.utterance_start_index = 0
 
-    state = State()
-    state.logger = logging.getLogger('asrclient')
-    state.server = ServerConnection(host, port, key, app, service, topic, lang, format, state.logger)
-    state.utterance_chunks = []
-    state.retry_count = 0
+        def send(self, chunk):
+            self.logger.info("entering send() :start index {0}, pending answers {1}, chunks answered {2}".format(self.utterance_start_index, self.pending_answers, self.chunks_answered))
+            try:
+                self.server.add_data(chunk)
+                self.pending_answers += 1
 
-    def send(chunk, start_index, current_index):
-        try:
-            state.server.add_data(chunk)
-            utterance = state.server.get_utterance_if_ready()
-            
-            if utterance:
-                state.logger.info('Chunks from {0} to {1}:'.format(start_index, current_index))
-                if callback is not None:
-                    callback(utterance)
-                del state.utterance_chunks[:]
-                state.retry_count = 0
-                return current_index
-            else:
-                state.retry_count = 0
-                return start_index
+                while self.pending_answers > 0:  
+                    utterance, messagesCount = state.server.get_utterance_if_ready()
+                    self.chunks_answered += messagesCount
+                    self.pending_answers -= messagesCount
 
-        except (DecodeProtobufError, ServerError, TransportError, SocketError) as e:
-            global retry_count
-            state.logger.info('Connection lost! ({0})'.format(type(e)))
-            state.logger.info(e.message)
-            utterance_bytes = "".join(state.utterance_chunks)
-            if state.retry_count < reconnect_retry_count:
-                state.retry_count += 1
-                state.server.reconnect(reconnect_delay)
-                state.logger.info('Resending current utterance (chunks {0}-{1}, {2} bytes)...'.format(start_index, current_index - 1, len(utterance_bytes)))
-                return send(utterance_bytes, start_index, current_index)
-            else:
-                with open("{0}.crash.utterance".format(time.time()), "wb") as f:
-                    state.logger.info("Saving crash utterance as {0}".format(f.name))
-                    f.write(utterance_bytes)
-                raise RuntimeError("Gave up!")
+                    self.retry_count = 0
+                    if utterance is not None:
+                        if utterance != "":
+                            self.logger.info('Chunks from {0} to {1}:'.format(self.utterance_start_index, self.utterance_start_index + self.chunks_answered))
+                            if callback is not None:
+                                callback(utterance)
+                            del self.unrecognized_chunks[:self.chunks_answered]
+                            self.utterance_start_index += self.chunks_answered
+                            self.chunks_answered = 0
+                            self.logger.info("got utterance: start index {0}, pending answers {1}, chunks answered {2}".format(self.utterance_start_index, self.pending_answers, self.chunks_answered))
+                    else:
+                        if chunk is None or self.pending_answers > DEFAULT_PENDING_LIMIT:
+                            continue
+                        else:
+                            break
 
+            except (DecodeProtobufError, ServerError, TransportError, SocketError) as e:
+                global retry_count
+                self.logger.info('Connection lost! ({0})'.format(type(e)))
+                self.logger.info(e.message)
+                if self.retry_count < reconnect_retry_count:
+                    self.retry_count += 1
+                    self.server.reconnect(reconnect_delay)
+                    self.logger.info('Resending current utterance (chunks {0}-{1})...'.format(self.utterance_start_index, self.utterance_start_index + len(self.unrecognized_chunks)))
+                    self.pending_answers = 0
+                    self.chunks_answered = 0
+                    for i, chunk in enumerate(self.unrecognized_chunks):
+                        if chunk is not None:
+                            self.logger.info('About to send chunk {0} ({1} bytes)'.format(self.utterance_start_index + i, len(chunk)))
+                        else:
+                            self.logger.info('No more chunks. Finalizing recognition.')
+                        self.send(chunk)
+                else:
+                    raise RuntimeError("Gave up!")
+                    
+    
+    start_at = time.time()
+
+    state = PendingRecognition()
+    
     state.logger.info('Recognition was started.')
-    start_index = 0
+    chunks_count = 0
     for index, chunk in enumerate(chunks):
         state.logger.info('About to send chunk {0} ({1} bytes)'.format(index, len(chunk)))
-        state.utterance_chunks.append(chunk)
-        start_index = send(chunk, start_index, index)
+        state.unrecognized_chunks.append(chunk)
+        state.send(chunk)
+        chunks_count = index + 1
 
     state.logger.info('No more chunks. Finalizing recognition.')
-    send(None, start_index, index)
+    state.unrecognized_chunks.append(None)
+    state.send(None)
     state.logger.info('Recognition is done.')
+
+    fin_at = time.time()
+    seconds_elapsed = fin_at - start_at 
+
+    state.logger.info("Start at {0}, finish at {1}, took {2} seconds".format(time.strftime("[%d.%m.%Y %H:%M:%S]", time.localtime(start_at)),
+                                                                          time.strftime("[%d.%m.%Y %H:%M:%S]", time.localtime(fin_at)),
+                                                                          seconds_elapsed))
+    chunks_per_second = chunks_count / seconds_elapsed
+    state.logger.info("Avg. {0} chunks per second".format(chunks_per_second))

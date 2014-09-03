@@ -1,7 +1,6 @@
 import socket
 import select
 import time
-# import hexdump
 
 
 class TransportError(RuntimeError):
@@ -10,9 +9,10 @@ class TransportError(RuntimeError):
 
 
 class Transport:
-    def __init__(self, ip, port, verbose=True):
+    def __init__(self, ip, port, timeout=5, verbose=True):
         self.verbose = verbose
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket.settimeout(timeout)
         if self.verbose:
             print 'Socket created' + str(self.socket)
         tries = 5
@@ -95,11 +95,16 @@ class Transport:
         response = protobufType()
         message = self.recvMessage()
 
-        # hexdump.hexdump(message)
-
         response.ParseFromString(message)
 
         return response
+
+    def recvProtobufIfAny(self, protobuf):
+        rlist, wlist, xlist = select.select([self.socket], [], [self.socket], 0)
+        if (len(rlist)):
+            return self.recvProtobuf(protobuf)
+        else:
+            return None
 
     def transfer(self, sendProtobuf, receiveType):
         self.sendProtobuf(sendProtobuf)

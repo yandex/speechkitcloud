@@ -24,6 +24,13 @@ import asrclient.client as client
 @click.option('--chunk-size',
               default=client.DEFAULT_CHUNK_SIZE_VALUE,
               help='Default value {0} bytes roughly equals to one second of audio in default format.'.format(client.DEFAULT_CHUNK_SIZE_VALUE))
+@click.option('--start-with-chunk',
+              default=0,
+              help='Use it to send only some part of the input file. Default is 0.')
+@click.option('--max-chunks-count',
+              default=None,
+              type=int,
+              help='Use it to send only some part of the input file. Default means no limit is set.')
 @click.option('--reconnect-delay',
               default=client.DEFAULT_RECONNECT_DELAY,
               help='Take a pause in case of network problems. Default value is {0} seconds.'.format(client.DEFAULT_RECONNECT_DELAY))
@@ -36,14 +43,17 @@ import asrclient.client as client
 @click.argument('files',
                 nargs=-1,
                 type=click.File('rb'))
-def main(key, server, port, format, chunk_size, silent, reconnect_delay, reconnect_retry_count, files):
+def main(key, server, port, format, chunk_size, start_with_chunk, max_chunks_count, silent, reconnect_delay, reconnect_retry_count, files):
     if not silent:
         logging.basicConfig(level=logging.INFO)
 
     if not files:
         click.echo('Please, specify one or more input filename.')
     else:
-        chunks = client.read_chunks_from_files(files, chunk_size)
+        chunks = client.read_chunks_from_files(files,
+                                               chunk_size,
+                                               start_with_chunk,
+                                               max_chunks_count)
         client.recognize(chunks,
                          callback=click.echo,
                          host=server,
