@@ -10,6 +10,10 @@ Options:
                                   audio/x-pcm;bit=16;rate=16000.
   --chunk-size INTEGER            Default value 32768 bytes roughly equals to
                                   one second of audio in default format.
+  --start-with-chunk INTEGER      Use it to send only some part of the input
+                                  file. Default is 0.
+  --max-chunks-count INTEGER      Use it to send only some part of the input
+                                  file. Default means no limit is set.
   --reconnect-delay FLOAT         Take a pause in case of network problems.
                                   Default value is 0.5 seconds.
   --reconnect-retry-count INTEGER
