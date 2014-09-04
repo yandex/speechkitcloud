@@ -32,26 +32,26 @@ class Transport:
         return self
 
     def send(self, data):
-        while True:
-            rlist, wlist, xlist = select.select([], [self.socket], [self.socket], 0.1)
+        while self.socket.gettimeout() is None:
+                rlist, wlist, xlist = select.select([], [self.socket], [self.socket], 0.1)
 
-            if len(xlist):
-                raise TransportError("send unavailable!")
+                if len(xlist):
+                    raise TransportError("send unavailable!")
 
-            if len(wlist):
-                break
+                if len(wlist):
+                    break
 
         self.socket.send(data)
 
     def recv(self, length):
-        while True:
-            rlist, wlist, xlist = select.select([self.socket], [], [self.socket], 0.1)
+        while self.socket.gettimeout() is None:
+                rlist, wlist, xlist = select.select([self.socket], [], [self.socket], 0.1)
 
-            if len(xlist):
-                raise TransportError("recv unavailable!")
+                if len(xlist):
+                    raise TransportError("recv unavailable!")
 
-            if len(rlist):
-                break
+                if len(rlist):
+                    break
 
         return self.socket.recv(length)
 
@@ -71,7 +71,7 @@ class Transport:
             assert len(symbol) == 1
 
             if symbol == '\r':
-                self.socket.recv(1)
+                self.recv(1)
                 break
             else:
                 size += symbol
@@ -100,11 +100,14 @@ class Transport:
         return response
 
     def recvProtobufIfAny(self, protobuf):
-        rlist, wlist, xlist = select.select([self.socket], [], [self.socket], 0)
-        if (len(rlist)):
-            return self.recvProtobuf(protobuf)
+        if self.socket.gettimeout() is None:
+            rlist, wlist, xlist = select.select([self.socket], [], [self.socket], 0)
+            if (len(rlist)):
+                return self.recvProtobuf(protobuf)
+            else:
+                return None
         else:
-            return None
+            return self.recvProtobuf(protobuf)
 
     def transfer(self, sendProtobuf, receiveType):
         self.sendProtobuf(sendProtobuf)

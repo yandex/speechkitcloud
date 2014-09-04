@@ -68,10 +68,10 @@ class ServerConnection(object):
             self.logger.info(message)
 
     def connect(self):
-        self.t = Transport(self.host, self.port, verbose=False)
+        self.t = Transport(self.host, self.port, timeout=None, verbose=False)
         if not self.upgrade_connection():
             raise ServerError('Unable to upgrade connection')
-        self.log("Connected!")
+        self.log("Connected to {0}:{1}.".format(self.host, self.port))
 
         response = self.send_init_request()
         if response.responseCode != 200:
@@ -214,6 +214,7 @@ def recognize(chunks,
                 global retry_count
                 self.logger.info('Connection lost! ({0})'.format(type(e)))
                 self.logger.info(e.message)
+                raise
                 if self.retry_count < reconnect_retry_count:
                     self.retry_count += 1
                     self.server.reconnect(reconnect_delay)
