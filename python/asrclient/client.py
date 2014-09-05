@@ -214,7 +214,6 @@ def recognize(chunks,
                 global retry_count
                 self.logger.info('Connection lost! ({0})'.format(type(e)))
                 self.logger.info(e.message)
-                raise
                 if self.retry_count < reconnect_retry_count:
                     self.retry_count += 1
                     self.server.reconnect(reconnect_delay)
