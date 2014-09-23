@@ -75,8 +75,11 @@ class ServerConnection(object):
 
         response = self.send_init_request()
         if response.responseCode != 200:
-            raise ServerError('Wrong response from server, status_code={0}'.format(
-                response.responseCode))
+            error_text = 'Wrong response from server, status_code={0}'.format(
+                response.responseCode)
+            if response.HasField("message"):
+                error_text += ', message is "{0}"'.format(response.message)
+            raise ServerError(error_text)
 
         self.session_id = response.sessionId
         self.log("session_id={0}".format(self.session_id))
@@ -143,17 +146,20 @@ class ServerConnection(object):
 
 
     def get_utterance_if_ready(self):
-        result = self.t.recvProtobufIfAny(AddDataResponse)
+        response = self.t.recvProtobufIfAny(AddDataResponse)
 
-        if result is not None:
-            if result.responseCode != 200:
-                raise ServerError('Wrong response from server, status_code={0}'.format(
-                    result.responseCode))
+        if response is not None:
+            if response.responseCode != 200:
+                error_text = 'Wrong response from server, status_code={0}'.format(
+                    response.responseCode)
+                if response.HasField("message"):
+                    error_text += ', message is "{0}"'.format(response.message)
+                raise ServerError(error_text)
 
-            if result.endOfUtt and len(result.recognition) > 0:
-                return result.recognition[0].normalized.encode('utf-8'), result.messagesCount
+            if response.endOfUtt and len(response.recognition) > 0:
+                return response.recognition[0].normalized.encode('utf-8'), response.messagesCount
             else:
-                return "", result.messagesCount
+                return "", response.messagesCount
         
         return None, 0
 
