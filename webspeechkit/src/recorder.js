@@ -1,6 +1,15 @@
 (function(window){
 
-    window.webspeechkit = {recorderInited: false};
+ window.webspeechkit = {
+    recorderInited: false,
+    FORMAT : {
+        PCM8: {format: 'pcm', samplerate: 8000, mime: "audio/x-pcm;bit=16;rate=8000"},
+        PCM16: {format: 'pcm', samplerate: 16000, mime: "audio/x-pcm;bit=16;rate=16000"},
+        PCM44: {format: 'pcm', samplerate: 44100, mime: "audio/x-pcm;bit=16;rate=44100"},
+        SPEEX8: {format: 'speex', samplerate: 8000, mime: "audio/x-speex"},
+        SPEEX16: {format: 'speex', samplerate: 16000, mime: "audio/x-speex"}
+        }
+    };
 
  var scriptPath = function () {
     var scripts = document.getElementsByTagName('script');
@@ -49,14 +58,14 @@
         }
 
         var worker = new Worker(workerPath || WORKER_PATH);
-        worker.postMessage({
+        /*worker.postMessage({
             command: 'init',
             config: {
                 sampleRate: this.context.sampleRate,
                 outSampleRate: this.outSampleRate,
                 bufSize: this.bufferLen
             }
-        });
+        });*/
 
         var recording = false;
         var currCallback;
@@ -95,8 +104,8 @@
                 command: 'init',
                 config: {
                     sampleRate: this.context.sampleRate,
-                    outSampleRate: this.outSampleRate,
-                    format: format
+                    format: format,
+                    bufSize: this.bufferLen
                 }
              });
 

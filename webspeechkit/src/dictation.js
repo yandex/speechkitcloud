@@ -17,14 +17,14 @@ window.webspeechkit.Dictation = function(asr_url, uuid, apikey) {
             return new_uri;
         }
 
-        backref.start = function(format, samplerate, initCallback, errorCallback, dataCallback, infoCallback) {
+        backref.start = function(format, initCallback, errorCallback, dataCallback, infoCallback) {
             if (webspeechkit.recorderInited) {
-                backref.onstart(format, samplerate, initCallback, errorCallback, dataCallback, infoCallback);
+                backref.onstart(format, initCallback, errorCallback, dataCallback, infoCallback);
             }
             else {
                 webspeechkit.initRecorder(
                     function(){
-                        backref.onstart(format, samplerate, initCallback, errorCallback, dataCallback, infoCallback);
+                        backref.onstart(format, initCallback, errorCallback, dataCallback, infoCallback);
                     },
                     function(err){
                         errorCallback("Could not init AudioContext: " + err); 
@@ -33,8 +33,8 @@ window.webspeechkit.Dictation = function(asr_url, uuid, apikey) {
             }
         }
 
-        backref.onstart = function(format, samplerate, initCallback, errorCallback, dataCallback, infoCallback) {
-            format = format || "pcm";
+        backref.onstart = function(format, initCallback, errorCallback, dataCallback, infoCallback) {
+            format = format || webspeechkit.FORMAT.PCM16;
             backref.send = 0;
             backref.send_bytes = 0;
             backref.proc = 0;
@@ -42,18 +42,13 @@ window.webspeechkit.Dictation = function(asr_url, uuid, apikey) {
 
             backref.recorder = new webspeechkit.Recorder(backref.bufsize, 1, function(){
                 errorCallback("Failed to create Recorder");
-            }, null, samplerate);
-
-            samplerate = samplerate || backref.recorder.context.sampleRate;
-            var format_string = "audio/x-speex";
-            if (format != "speex")
-                format_string = "audio/x-pcm;bit=16;rate=" + samplerate;
+            }, null, format.samplerate);
 
             backref.recognizer = new webspeechkit.Recognizer(
                 backref.webSocketPath(),
                 uuid, 
                 apikey, 
-                format_string,
+                format.mime,
             {
                 onInit: function(sessionId, code){
                     initCallback(sessionId, code);
@@ -63,7 +58,6 @@ window.webspeechkit.Dictation = function(asr_url, uuid, apikey) {
                         infoCallback({
                                     send_bytes: backref.send_bytes,
                                     format: format,
-                                    samplerate: samplerate,
                                     send_packages: backref.send,
                                     processed: backref.proc
                                     });

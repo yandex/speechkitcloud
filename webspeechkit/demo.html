@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html class="no-js consumer" lang="en">
+  <head>
+    <script type="text/javascript" src="//yandex.st/jquery/2.1.1/jquery.min.js"></script>
+    <script type="text/javascript" src="//yandex.st/jquery-ui/1.11.1/jquery-ui.min.js"></script>
+    <script type="text/javascript" src="deploy/webspeechkit.min.js"></script>
+
+    <meta charset="utf-8">
+    <meta content="initial-scale=1, minimum-scale=1, width=device-width" name="viewport">
+    <title>Webspeechkit example</title>
+  </head>
+  <body class="" id="grid">
+    <input type="radio" name="format" value="SPEEX8">Speex narrowband (8KHz)</input><br/>
+    <input type="radio" name="format" value="SPEEX16">Speex wideband (16KHz)</input><br/>
+    <input type="radio" name="format" value="PCM8">PCM 8KHz</input><br/>
+    <input type="radio" name="format" value="PCM16" checked="true">PCM 16KHz</input><br/>
+    <input type="radio" name="format" value="PCM44">PCM no resampling</input><br/>
+    <input type="button" id="start_btn" value="Start"/>
+    <input type="button" id="stop_btn" value="Stop"/>
+    <div id="info">
+        Send <span id="bytes_send">0</span> bytes / <span id="packages_send">0</span> packages / Processed <span id="processed">0</span> packages
+    </div>
+    <div id="results">
+        <span class="final" id="content_uttr"></span> <span class="interim" id="content_curr"></span>
+    </div>
+
+    <script>
+        var uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+            var r = Math.random()*16|0, v = c == 'x' ? r : (r&0x3|0x8);
+                return v.toString(16);
+                });
+
+        var key = PUT YOUR KEY HERE;
+
+        var dict = new webspeechkit.Dictation("webasr.yandex.net/asrsocket.ws", uuid, key);
+
+        start_btn.onclick = function() {
+            var format = webspeechkit.FORMAT[$('input[name=format]:checked').val()];
+
+                $('#content_uttr').html('');
+                $('#content_curr').html('');
+                dict.start(format,
+                    function(){},
+                    function(msg) {console.log(msg); alert(msg);},
+                    function(text, uttr, merge) {
+                        if (uttr) {
+                            $('#content_uttr').append(' ' + text);                            
+                            text = "";
+                        }
+                        $('#content_curr').html(text);
+                    },
+                    function(info) {
+                       $('#bytes_send').html(info.send_bytes);
+                       $('#packages_send').html(info.send_packages);
+                       $('#processed').html(info.processed);
+                    }
+                );
+        }
+
+        stop_btn.onclick = dict.stop;
+    </script>
+  </body>
+</html>
