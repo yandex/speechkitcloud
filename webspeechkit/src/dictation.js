@@ -6,6 +6,8 @@ window.webspeechkit.Dictation = function(asr_url, uuid, apikey) {
         backref.bufsize = 1024;
 
         backref.webSocketPath = function(){
+            if (asr_url.startsWith("wss://") || asr_url.startsWith("ws://"))
+                return asr_url;
             var loc = window.location, new_uri;
             if (loc.protocol === "https:") {
                 new_uri = "wss:";

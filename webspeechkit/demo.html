@@ -32,7 +32,7 @@
 
         var key = PUT YOUR API KEY HERE; //You can get it here: https://developer.tech.yandex.ru
 
-        var dict = new webspeechkit.Dictation("webasr.yandex.net/asrsocket.ws", uuid, key);
+        var dict = new webspeechkit.Dictation("wss://webasr.yandex.net/asrsocket.ws", uuid, key);
 
         start_btn.onclick = function() {
             var format = webspeechkit.FORMAT[$('input[name=format]:checked').val()];
