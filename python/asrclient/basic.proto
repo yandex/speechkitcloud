@@ -1,3 +1,16 @@
+// Yandex ASR dictation api (draft):
+// Client initiate session with http upgrade request, for example:
+// GET /asr_partial HTTP/1.1\r\n
+// User-Agent:KeepAliveClient\r\n
+// Host: voice-stream.voicetech.yandex.net:80\r\n
+// Upgrade: dictation\r\n\r\n
+// Receive HTTP 101 Switched response.
+// Next send\receive protobuf messages, format
+// [hex size]\r\n[message body serialized with protobuf]
+
+// send ConnectionRequest, read ConnectionsResponse.. etc
+// send AddData, read AddDataResponse and so on.
+
 package BasicProtobuf;
 
 message ConnectionResponse
@@ -16,6 +29,7 @@ message ConnectionResponse
     Timeout = 408;
     ProtocolError = 410;
     InternalError = 500;
+    InvalidKey = 429;
 	}
 }
 

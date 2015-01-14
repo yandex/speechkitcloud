@@ -2,6 +2,19 @@ import "basic.proto";
 
 package VoiceProxyProtobuf;
 
+message MusicRequest
+{
+  message MusicParam
+  {
+    required string name = 1;
+
+    required string value = 2;
+  }
+
+  // default options are "uid", "OAuth", "widget"
+  repeated MusicParam musicProxyOptions = 1;
+}
+
 message ConnectionRequest
 {
   optional int32 protocolVersion = 1 [default = 1];
@@ -34,6 +47,11 @@ message ConnectionRequest
 
   // enable punctuation mode for "freeform-dictation" topic
   optional bool punctuation = 12 [default = true];
+
+  // data will also be send to music proxy, and optional AddDataResponse may happend with musicProxyResponse
+  optional MusicRequest musicRequest = 17;
+
+  optional bool disableAntimatNormalizer = 18 [default = false];
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -75,5 +93,9 @@ message AddDataResponse
 
   // how many AddData requests were merged for this response
   optional int32 messagesCount = 4 [default = 1];
+
+  // if not empty messageCounter should be 0
+  optional string musicProxyResponse = 5;
 }
+
 

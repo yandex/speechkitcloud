@@ -18,8 +18,11 @@ from transport import Transport, TransportError
 DEFAULT_KEY_VALUE = 'paste-your-own-key'
 DEFAULT_SERVER_VALUE = 'asr.yandex.net'
 DEFAULT_PORT_VALUE = 80
+
 DEFAULT_FORMAT_VALUE = 'audio/x-pcm;bit=16;rate=16000'
-DEFAULT_CHUNK_SIZE_VALUE = 1024*32
+# 'audio/x-pcm;bit=16;rate=8000' # use this format for 8k bitrate wav and pcm
+
+DEFAULT_CHUNK_SIZE_VALUE = 1024*32*2
 DEFAULT_RECONNECT_DELAY = 0.5
 DEFAULT_RECONNECT_RETRY_COUNT = 5
 DEFAULT_PENDING_LIMIT = 50
@@ -156,8 +159,17 @@ class ServerConnection(object):
                     error_text += ', message is "{0}"'.format(response.message)
                 raise ServerError(error_text)
 
-            if response.endOfUtt and len(response.recognition) > 0:
-                return response.recognition[0].normalized.encode('utf-8'), response.messagesCount
+            self.log("got response: endOfUtt={0}; len(recognition)={1}".format(response.endOfUtt, len(response.recognition)))
+
+            if len(response.recognition) == 0:
+                return "", response.messagesCount
+
+            text =  response.recognition[0].normalized.encode('utf-8')
+            merged = response.messagesCount
+            self.log("partial result: {0}; merged={1}".format(text, merged))
+
+            if response.endOfUtt:
+                return text, merged
             else:
                 return "", response.messagesCount
         
@@ -202,6 +214,7 @@ def recognize(chunks,
 
                     self.retry_count = 0
                     if utterance is not None:
+                        self.logger.info('Utterance is not None')
                         if utterance != "":
                             self.logger.info('Chunks from {0} to {1}:'.format(self.utterance_start_index, self.utterance_start_index + self.chunks_answered))
                             if callback is not None:
@@ -210,10 +223,15 @@ def recognize(chunks,
                             self.utterance_start_index += self.chunks_answered
                             self.chunks_answered = 0
                             self.logger.info("got utterance: start index {0}, pending answers {1}, chunks answered {2}".format(self.utterance_start_index, self.pending_answers, self.chunks_answered))
+                        else:
+                            self.logger.info("utterance incomplete, hiding partial result")
                     else:
-                        if chunk is None or self.pending_answers > DEFAULT_PENDING_LIMIT:
+                        if chunk is None:
+                            continue
+                        elif self.pending_answers > pending_limit:
                             continue
                         else:
+                            self.logger.info('leaving send()')
                             break
 
             except (DecodeProtobufError, ServerError, TransportError, SocketError) as e:
