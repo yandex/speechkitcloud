@@ -1,5 +1,5 @@
 (function(webspeechkit){
-    webspeechkit.Dictation = function (asr_url, uuid, apikey) {
+    webspeechkit.Spotter = function (asr_url, uuid, apikey) {
         this.send = 0;
         this.send_bytes = 0;
         this.proc = 0;
@@ -9,10 +9,9 @@
         this.asr_url = asr_url;
         this.uuid = uuid;
         this.apikey = apikey;
-    }
+        var backref = this;
 
-    webspeechkit.Dictation.prototype = {
-        webSocketPath: function() {
+        this.webSocketPath = function() {
             if ((this.asr_url.indexOf("wss://")==0) || (this.asr_url.indexOf("ws://")==0))
                 return this.asr_url;
             var loc = window.location, new_uri;
@@ -23,9 +22,9 @@
             }
             new_uri += "//" + this.asr_url;
             return new_uri;
-        }
-        ,
-        start: function(options) {
+        };
+
+        this.start= function(options) {
             var donothing = function(){};
             this.options = {
                 initCallback: donothing,
@@ -34,13 +33,12 @@
                 infoCallback: donothing,
                 stopCallback: donothing,
                 punctuation: false,
-                model: "freeform",
-                lang: "ru-RU",
                 format: webspeechkit.FORMAT.PCM16,
                 vad: false,
                 speechStart: donothing,
                 speechEnd: donothing,
-                bufferSize: 1024
+                bufferSize: 1024,
+		phrases: []
             };
             
             for(var option in options) {
@@ -58,9 +56,9 @@
                     this.options.errorCallback 
                 )               
             }
-        }
-        ,
-        onstart: function() {
+        };
+        
+        this.onstart = function() {
             if (this.recorder && this.recorder.isPaused())
                 this.recorder.start();
 
@@ -77,71 +75,68 @@
                 }.bind(this), null, this.options.format.samplerate);
                 if (this.options.vad)
                     this.vad = new webspeechkit.Vad({recorder: this.recorder,
-                                                     speechStart: this.options.speechStart,
-                                                     speechEnd: this.options.speechEnd});
+                                                speechStart: this.options.speechStart,
+                                                speechEnd: this.options.speechEnd});
             }
-            
+
             this.recognizer = new webspeechkit.Recognizer(
                 this.webSocketPath(),
-		        {
-		            onInit: function(sessionId, code) {
-			            this.recorder.start(function(data) {
-			                if (this.options.vad && this.vad) {
-				                this.vad.update();
-			                }
-			                this.send++;
-			                this.send_bytes += data.byteLength;
-			                this.options.infoCallback({
-					            send_bytes: this.send_bytes,
-					            format: this.options.format,
-					            send_packages: this.send,
-					            processed: this.proc
-					        });
-			                this.recognizer.addData(data);
-			            }.bind(this), this.options.format)
-			            this.options.initCallback(sessionId, code);
-		            }.bind(this),
-		            onResult: function(text, uttr, merge) {
-			            this.proc += merge;
-			            this.options.dataCallback(text, uttr, merge); 
-		            }.bind(this),
-		            onError: function(msg) {
-			            this.recorder.stop(function(){});
-			            this.recognizer.close()
-			            this.recognizer = null;
-			            this.options.errorCallback(msg);
-		            }.bind(this)
-		        },
-		        {
-		            uuid : this.uuid, 
-		            key: this.apikey,
-                    model: this.options.model,
-                    lang: this.options.lang,
-		            format: this.options.format.mime,
-		            punctuation : this.options.punctuation,
-		        });
+		{
+		    onInit: function(sessionId, code){
+			backref.recorder.start(function(data){
+			    if (backref.options.vad && backref.vad) {
+				backref.vad.update();
+			    }
+			    backref.send++;
+			    backref.send_bytes += data.byteLength;
+			    backref.options.infoCallback({
+					send_bytes: backref.send_bytes,
+					format: backref.options.format,
+					send_packages: backref.send,
+					processed: backref.proc
+					});
+			    backref.recognizer.addData(data);
+			}, backref.options.format)
+			backref.options.initCallback(sessionId, code);
+		    },
+		    onResult: function(text, uttr, merge){
+			backref.proc += merge;
+			backref.options.dataCallback(text, uttr, merge); 
+		    },
+		    onError: function(msg){
+			backref.recorder.stop(function(){});
+			backref.recognizer.close()
+			backref.recognizer = null;
+			backref.options.errorCallback(msg);
+		    }
+		},
+		{
+		    uuid : this.uuid, 
+		    key : this.apikey, 
+		    format: this.options.format.mime,
+		    phrases: this.options.phrases
+		});
             
             this.recognizer.start();
-        }
-        ,
-        stop: function() {
-            if (this.recognizer)
-                this.recognizer.close();
-            
-            this.recorder.stop(
+        };
+        
+        this.stop = function() {
+            if (backref.recognizer)
+                backref.recognizer.close();
+            backref.recorder.stop(
                 function () {
-                    this.recognizer = null;
-                    this.options.stopCallback();
-                }.bind(this)
+                    backref.recognizer = null;
+                    backref.options.stopCallback();
+                }
             );
-        }
-        ,
-        pause: function() {
-            this.recorder.pause();
-        }
-        ,
-        isPaused: function() {
-            return (!this.recorder || this.recorder.isPaused());                    
-        }
+        };
+        
+        this.pause = function() {
+            backref.recorder.pause();
+        };
+        
+        this.isPaused = function() {
+            return (!backref.recorder || backref.recorder.isPaused());                    
+        };
     };
 }(window.webspeechkit));

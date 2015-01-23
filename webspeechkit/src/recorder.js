@@ -9,7 +9,7 @@
         SPEEX8: {format: 'speex', samplerate: 8000, mime: "audio/x-speex"},
         SPEEX16: {format: 'speex', samplerate: 16000, mime: "audio/x-speex"}
         }
-    };
+};
 
  var scriptPath = function () {
     var scripts = document.getElementsByTagName('script');
@@ -30,23 +30,21 @@
 
  function Recorder(stream)
  {
-    return function(bufferSize, channelCount, onError, workerPath, outSampleRate)
+    function RecorderImpl(bufferSize, channelCount, onError, workerPath, outSampleRate)
     {
-        var backref = this;
         this.bufferLen = bufferSize || 4096;
         this.channelCount = Math.max(1, Math.min(channelCount || 2, 2)); // 1 or 2, defaults to 2
-        this.context = new AudioContext();
+        this.context = webspeechkit.audiocontext || new AudioContext();
+        webspeechkit.audiocontext = this.context;
+
         this.outSampleRate = outSampleRate || this.context.sampleRate
 
-        if (this.outSampleRate == this.context.sampleRate)
-            this.inputPoint = this.context.createGain();        
-        else {
-            this.inputPoint = this.context.createBiquadFilter();
-            this.inputPoint.type = "lowpass";
-            this.inputPoint.frequency.value = this.outSampleRate;
-            this.inputPoint.Q.value = 1;
-            this.inputPoint.gain.value = 5;
-        }
+
+        this.inputPoint = this.context.createBiquadFilter();
+        this.inputPoint.type = "lowpass";
+        this.inputPoint.frequency.value = this.outSampleRate;
+        this.inputPoint.Q.value = 1;
+        this.inputPoint.gain.value = 5;
 
         this.audioInput = this.context.createMediaStreamSource(stream);
         this.audioInput.connect(this.inputPoint);
@@ -57,119 +55,159 @@
             this.node = this.context.createScriptProcessor(this.bufferLen, 2, this.channelCount);
         }
 
-        var worker = new Worker(workerPath || WORKER_PATH);
-        /*worker.postMessage({
-            command: 'init',
-            config: {
-                sampleRate: this.context.sampleRate,
-                outSampleRate: this.outSampleRate,
-                bufSize: this.bufferLen
-            }
-        });*/
+        this.inputPoint.connect(this.node);
+        this.node.connect(this.context.destination);
 
-        var recording = false;
-        var currCallback;
-        var buffCallback;
-        var startCallback;
+        this.worker = new Worker(workerPath || WORKER_PATH);
+
+        this.recording = false;
+
+        this.paused = false;
+        this.lastDataOnPause = 0;
+
+        this.nullsArray = [];
+
+        this.currCallback;
+        this.buffCallback;
+        this.startCallback;
 
         this.node.onaudioprocess = function(e){
 
-            if (!recording) return;
+            if (!this.recording) return;
             
-            worker.postMessage({
-                command: 'record',
-                buffer: [
-                    e.inputBuffer.getChannelData(0),
-                    e.inputBuffer.getChannelData(1)
-                ]
-            });
-        }
+            if (this.paused) {
+                if (Number(new Date()) - this.lastDataOnPause > 2000) {
+                    this.lastDataOnPause = Number(new Date());
+                    this.worker.postMessage({
+                        command: 'record',
+                        buffer: [
+                            this.nullsArray,
+                            this.nullsArray
+                        ]
+                    });
+                }
+            }
+            else{
+                this.worker.postMessage({
+                    command: 'record',
+                    buffer: [
+                        e.inputBuffer.getChannelData(0),
+                        e.inputBuffer.getChannelData(1)
+                    ]
+                });
+            }
+        }.bind(this);
 
-        
-        this.getAudioContext = function() {
+        this.worker.onmessage = function(e){
+            if (e.data.command == 'int16stream')
+            {
+                var data = e.data.buffer;
+
+                if (this.startCallback) {
+                    this.startCallback(data);
+                }
+            }
+            else  if (e.data.command == 'getBuffers' && this.buffCallback)
+            {
+                this.buffCallback(e.data.blob)
+            }
+            else if (e.data.command == 'clear' && this.currCallback)
+            {
+                this.currCallback();
+            }
+            else if (this.currCallback)
+            {
+                this.currCallback(e.data.blob);
+            }
+        }.bind(this);
+
+    };
+
+    RecorderImpl.prototype = {
+        pause: function() {
+            this.paused = true;
+            this.lastDataOnPause = Number(new Date());
+        }
+        ,
+        getAudioContext: function() {
             return this.context;
         }
-
-        this.getAnalyserNode = function() {
+        ,
+        getAnalyserNode: function() {
             var analyserNode = this.context.createAnalyser();
             analyserNode.fftSize = 2048;
             this.inputPoint.connect(analyserNode);
             return analyserNode;
         }
+        ,
+        isPaused: function() {
+            return this.paused;
+        }
+        ,
+        start: function(cb, format) {
+            if (this.isPaused()) {
+                this.paused = false;
+                return;
+            }
 
+            this.outSampleRate = format.samplerate;
+            this.inputPoint.frequency.value = this.outSampleRate;
 
-        this.start = function(cb, format) {
-            startCallback = cb;
-            worker.postMessage({
+            this.startCallback = cb;
+            this.worker.postMessage({
                 command: 'init',
                 config: {
                     sampleRate: this.context.sampleRate,
-                    format: format,
+                    format: format || webspeechkit.FORMAT.PCM44,
                     bufSize: this.bufferLen
                 }
              });
 
-            this.clear(function() {recording = true;});
-        }
+             this.nullsArray = [];
+             for (var i =0; i< this.bufferLen; i++)
+                this.nullsArray.push(0);
 
-        this.stop = function(cb){
-            recording = false;
+            this.clear(function() {this.recording = true;}.bind(this));
+        }
+        ,
+        stop: function(cb){
+            this.recording = false;
+
             this.exportWAV(function(blob)
             {
                 cb(blob);
             }
             );
         }
-
-        this.isRecording = function(){
-            return recording;
+        ,
+        isRecording: function(){
+            return this.recording;
         }
-
-        this.clear = function(cb){
-            currCallback = cb;
-            worker.postMessage({ command: 'clear' });
+        ,
+        clear: function(cb){
+            this.currCallback = cb;
+            this.worker.postMessage({ command: 'clear' });
         }
-
-        this.getBuffers = function(cb) {
-            buffCallback = cb;
-            worker.postMessage({ command: 'getBuffers' })
+        ,
+        getBuffers: function(cb) {
+            this.buffCallback = cb;
+            this.worker.postMessage({ command: 'getBuffers' })
         }
-
-        this.exportWAV = function(cb, type){
-            currCallback = cb;
+        ,
+        exportWAV: function(cb, type){
+            this.currCallback = cb;
             type = type || 'audio/wav';
-            if (!currCallback) throw new Error('Callback not set');
-            worker.postMessage({
+
+            if (!this.currCallback) throw new Error('Callback not set');
+
+            this.worker.postMessage({
                 command: "export"+(this.channelCount!=2 && "Mono" || "")+"WAV",
                 type: type
             });
-        }
+        }        
+    };
 
-        worker.onmessage = function(e){
-            if (e.data.command == 'int16stream')
-            {
-                var data = e.data.buffer;
-                if (startCallback) {
-                    startCallback(data);
-                }
-            }
-            else  if (e.data.command == 'getBuffers' && buffCallback)
-            {
-                buffCallback(e.data.blob)
-            }
-            else if (e.data.command == 'clear' && currCallback)
-            {
-                currCallback();
-            }
-            else if (currCallback)
-            {
-                currCallback(e.data.blob);
-            }
-        }
-
-        this.inputPoint.connect(this.node);
-        this.node.connect(this.context.destination);
-    }
+    return RecorderImpl;
 } 
  
  window.webspeechkit.initRecorder = function(initSuccess, initFail)
@@ -189,7 +227,7 @@
         {
             return null;
         }
-        initFail(err);
+        initFail("Could not init AudioContext: " + err);
      }
     
      if (navigator.getUserMedia)
@@ -213,4 +251,4 @@
         badInitialization("Your browser doesn't support WebRTC. Please, use Firefox or Yandex.Browser");
     }
  };
-})(window);
+}(window));

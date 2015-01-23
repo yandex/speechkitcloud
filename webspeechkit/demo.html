@@ -7,57 +7,80 @@
 
     <meta charset="utf-8">
     <meta content="initial-scale=1, minimum-scale=1, width=device-width" name="viewport">
-    <title>Webspeechkit example</title>
+    <title>Yandex.Webspeechkit example</title>
   </head>
   <body class="" id="grid">
-    <input type="radio" name="format" value="SPEEX8">Speex narrowband (8KHz)</input><br/>
-    <input type="radio" name="format" value="SPEEX16">Speex wideband (16KHz)</input><br/>
-    <input type="radio" name="format" value="PCM8">PCM 8KHz</input><br/>
-    <input type="radio" name="format" value="PCM16" checked="true">PCM 16KHz</input><br/>
-    <input type="radio" name="format" value="PCM44">PCM no resampling</input><br/>
+    <select id="format">
+        <option value="PCM44">PCM 44KHz</option>
+        <option value="PCM16">PCM 16KHz</option>
+        <option value="PCM8">PCM 8KHz</option>
+        <option value="SPEEX16">Speex wideband (16KHz)</option>
+        <option value="SPEEX8">Speex narrowband (8KHz)</option>
+    </select>
+    <input type="checkbox" id="punctuation" checked=true>Punctuation</input><br/>
     <input type="button" id="start_btn" value="Start"/>
     <input type="button" id="stop_btn" value="Stop"/>
+    <input type="button" id="pause_btn" value="Pause"/>
+    <input type='button' id='tts_say' value='Say'/>
     <div id="info">
         Send <span id="bytes_send">0</span> bytes / <span id="packages_send">0</span> packages / Processed <span id="processed">0</span> packages
     </div>
     <div id="results">
         <span class="final" id="content_uttr"></span> <span class="interim" id="content_curr"></span>
     </div>
-
+    <div id="pack"></div>
     <script>
+    
         var uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-            var r = Math.random()*16|0, v = c == 'x' ? r : (r&0x3|0x8);
+                var r = Math.random()*16|0, v = c == 'x' ? r : (r&0x3|0x8);
                 return v.toString(16);
                 });
 
         var key = PUT YOUR API KEY HERE; //You can get it here: https://developer.tech.yandex.ru
 
+        var tts = new webspeechkit.Tts({key: key, emotion: 'evil', speaker: 'jane'});
         var dict = new webspeechkit.Dictation("wss://webasr.yandex.net/asrsocket.ws", uuid, key);
 
         start_btn.onclick = function() {
-            var format = webspeechkit.FORMAT[$('input[name=format]:checked').val()];
+            var format = webspeechkit.FORMAT[$('#format').val()];
 
-                $('#content_uttr').html('');
-                $('#content_curr').html('');
-                dict.start(format,
-                    function(){},
-                    function(msg) {console.log(msg); alert(msg);},
-                    function(text, uttr, merge) {
-                        if (uttr) {
-                            $('#content_uttr').append(' ' + text);                            
-                            text = "";
-                        }
-                        $('#content_curr').html(text);
-                    },
-                    function(info) {
-                       $('#bytes_send').html(info.send_bytes);
-                       $('#packages_send').html(info.send_packages);
-                       $('#processed').html(info.processed);
+            $('#content_uttr').html('');
+            $('#content_curr').html('');
+            dict.start({
+                format: format,
+                bufferSize: 1024,
+                errorCallback: function(msg) {console.log(msg); alert(msg);},
+                dataCallback: function(text, uttr, merge) {
+                    if (uttr) {
+                        $('#content_uttr').append(' ' + text);                            
+                        text = "";
                     }
-                );
+                    $('#content_curr').html(text);
+                },
+                infoCallback: function(info) {
+                    $('#bytes_send').html(info.send_bytes);
+                    $('#packages_send').html(info.send_packages);
+                    $('#processed').html(info.processed);
+                },
+                punctuation: punctuation.checked,
+                vad: true,
+                speechStart: function() {
+                    $('#pack').html('Speech started!');
+                },
+                speechEnd: function() {
+                    $('#pack').html('Speech ended!');
+                }
+            });
         }
 
-        stop_btn.onclick = dict.stop;
+        pause_btn.onclick = dict.pause.bind(dict);
+        stop_btn.onclick = dict.stop.bind(dict);
+        
+        tts_say.onclick = function() {
+            dict.pause();
+            var text = $('#content_uttr').text() + $('#content_curr').text();
+            tts.say(text, start_btn.onclick, {emotion: 'good', speaker: 'jane'});
+        };
     </script>
   </body>
 </html>

@@ -1,5 +1,4 @@
-importScripts("./speex.min.js"); 
-
+var speex_loaded = false;
 var recLength = 0,
   recBuffersL = [],
   recBuffersR = [],
@@ -36,7 +35,12 @@ function init(config){
   sampleRate = config.sampleRate;
   outSampleRate = config.format.samplerate || sampleRate;
   need_buf_size = config.bufSize || 4096;
+  speex_converter = null;
   if (config.format.format == "speex") {
+        if (!speex_loaded) {
+            importScripts("./speex.min.js"); 
+            speex_loaded = true;
+        }
         need_buf_size /= 16;
         speex_converter = new SpeexConverter(outSampleRate);
   }
@@ -212,10 +216,13 @@ function encodeWAV(samples, mono){
   view.setUint16(22, mono?1:2, true);
   /* sample rate */
   view.setUint32(24, outSampleRate, true);
-  /* byte rate (sample rate * block align) */
-  view.setUint32(28, outSampleRate * 4, true);
+  
   /* block align (channel count * bytes per sample) */
-  view.setUint16(32, mono?2:4, true);
+  var block_align = mono?2:4;
+  /* byte rate (sample rate * block align) */
+  view.setUint32(28, outSampleRate * block_align, true);
+  /* block align (channel count * bytes per sample) */
+  view.setUint16(32, block_align, true);
   /* bits per sample */
   view.setUint16(34, 16, true);
   /* data chunk identifier */

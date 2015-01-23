@@ -1,53 +1,88 @@
-window.webspeechkit.Recognizer = function(url, uuid, key, audioFormat, listener){
-    var socket = new WebSocket(url);
+(function(webspeechkit){
+    webspeechkit.Recognizer = function(url, listener, options){
+        this.url = url;
+        
+        this.listener = listener || {onInit: function(){}, onResult: function(){}, onError: function(){}};
+        
+        // {uuid: uuid, key: key, format: audioFormat, punctuation: punctuation}
+        this.options = options;
+        
+        this.sessionId = null;
+        this.socket = null;
 
-    function sendRaw(data){
-        socket.send(data);
+        this.buffered = [];
+        this.totaldata = 0;
     }
+    
+    webspeechkit.Recognizer.prototype = {
 
-    function sendJson(json){
-	sendRaw(JSON.stringify({type: 'message', data: json}));
-    }
-
-    var sessionId = null;
-
-    $(socket)
-        .bind('open', function(){
-            sendJson({uuid: uuid, key: key, format: audioFormat});
-        })
-        .bind('message', function(e){
-            var message = JSON.parse(e.originalEvent.data)
-
-            if (message.type == 'InitResponse'){
-                sessionId = message.data.sessionId;
-                listener.onInit(message.data.sessionId, message.data.code)
-            }
-            else if (message.type == "AddDataResponse"){
-                listener.onResult(message.data.text, message.data.uttr, message.data.merge);
-            }
-            else if (message.type == "Error"){
-                console.log("Error from server " + message.data)
-                listener.onError(message.data)
-            }
-            else {
-                console.log("Unknown message format, receive this:" + message)
-                listener.onError(message)
-            }
-        })
-    var totaldata = 0;
-    this.addData = function(data){
-        totaldata += data.byteLength;
-        if (!sessionId)
-        {
-            console.log("Data ingored, session not yet inited.")
-            return;
+        sendRaw: function(data){
+            if (this.socket)
+                this.socket.send(data);
         }
+        ,
+        sendJson: function(json){        
+	    this.sendRaw(JSON.stringify({type: 'message', data: json}));
+        }
+        ,    
+        start: function() {
+            this.socket = new WebSocket(this.url);
 
+            this.socket.onopen = function(){
+                // {uuid: uuid, key: key, format: audioFormat, punctuation: punctuation}
+                this.sendJson(this.options);
+            }.bind(this);
 
-        sendRaw(new Blob([data], { type: audioFormat }))
-    }
+            this.socket.onmessage = function(e){
+                var message = JSON.parse(e.data)
 
-    this.close = function(){
-        socket.close();
-    }
-};
+                if (message.type == 'InitResponse'){
+                    this.sessionId = message.data.sessionId;
+                    this.listener.onInit(message.data.sessionId, message.data.code)
+                }
+                else if (message.type == "AddDataResponse"){
+                    this.listener.onResult(message.data.text, message.data.uttr, message.data.merge);
+                }
+                else if (message.type == "Error"){
+                    this.listener.onError("Session " + this.sessionId + ": " + message.data);
+                    this.close();
+                }
+                else {
+                    this.listener.onError("Session " + this.sessionId + ": " + message);
+                    this.close();
+                }
+            }.bind(this);
+
+            this.socket.onerror = function(error) {
+                this.listener.onError("Socket error: " + error.message);
+            }.bind(this);
+
+            this.socket.onclose = function(event) {
+            }.bind(this);
+        }
+        ,
+        addData: function(data){
+            this.totaldata += data.byteLength;
+        
+            if (!this.sessionId) {
+                this.buffered.push(data);
+                return;
+            }
+
+            for (var i=0; i<this.buffered.length; i++){
+                this.sendRaw(new Blob([this.buffered[i]], { type: this.options.format }))
+                this.totaldata += this.buffered[i].byteLength;
+            }
+
+            this.buffered = [];
+            this.sendRaw(new Blob([data], { type: this.options.format }))
+        }
+        ,
+        close: function(){
+            this.listener = {onInit: function(){}, onResult: function(){}, onError: function(){}};
+            if (this.socket)
+                this.socket.close();
+            this.socket = null;
+        }
+    };
+}(window.webspeechkit));

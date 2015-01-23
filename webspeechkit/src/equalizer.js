@@ -22,6 +22,7 @@ _create: function() {
 
     if (this.options.recorder)
     {
+        this.options.recorder.prototype = window.webspeechkit.Recorder.prototype;
         this.analyserNode = this.options.recorder.getAnalyserNode();
         this.context = this.options.recorder.context;
     }
