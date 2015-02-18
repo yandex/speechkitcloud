@@ -7,6 +7,12 @@ import click
 
 import asrclient.client as client
 
+try:
+    import pyaudio
+    is_pyaudio = True
+except exceptions.ImportError:
+    is_pyaudio = False
+    
 
 @click.command()
 @click.option('-k', '--key',
@@ -40,20 +46,34 @@ import asrclient.client as client
 @click.option('--silent',
               is_flag=True,
               help='Don\'t print debug messages, only recognized text.')
+@click.option('--record',
+              is_flag=True,
+              help='Grab audio from system audio input instead of files.')
+    
 @click.argument('files',
                 nargs=-1,
                 type=click.File('rb'))
-def main(key, server, port, format, chunk_size, start_with_chunk, max_chunks_count, silent, reconnect_delay, reconnect_retry_count, files):
+def main(key, server, port, format, chunk_size, start_with_chunk, max_chunks_count, silent, reconnect_delay, reconnect_retry_count, record, files):
     if not silent:
         logging.basicConfig(level=logging.INFO)
 
-    if not files:
-        click.echo('Please, specify one or more input filename.')
-    else:
+    chunks = []
+    if files:
         chunks = client.read_chunks_from_files(files,
                                                chunk_size,
                                                start_with_chunk,
                                                max_chunks_count)
+    else:
+        if record:
+            if is_pyaudio:
+                chunks = client.read_chunks_from_pyaudio()
+            else:
+                click.echo('Please install pyaudio module for system audio recording.')
+                sys.exit(-2)
+
+    if not chunks:
+        click.echo('Please, specify one or more input filename.')
+    else:
         client.recognize(chunks,
                          callback=click.echo,
                          host=server,
@@ -62,7 +82,6 @@ def main(key, server, port, format, chunk_size, start_with_chunk, max_chunks_cou
                          format=format,
                          reconnect_delay=reconnect_delay,
                          reconnect_retry_count=reconnect_retry_count)
-
 
 if __name__ == "__main__":
         main()
