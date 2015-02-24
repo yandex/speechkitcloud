@@ -4,6 +4,7 @@
 
 import logging
 import click
+import exceptions
 
 import asrclient.client as client
 
@@ -12,7 +13,7 @@ try:
     is_pyaudio = True
 except exceptions.ImportError:
     is_pyaudio = False
-    
+
 
 @click.command()
 @click.option('-k', '--key',
@@ -49,7 +50,7 @@ except exceptions.ImportError:
 @click.option('--record',
               is_flag=True,
               help='Grab audio from system audio input instead of files.')
-    
+
 @click.argument('files',
                 nargs=-1,
                 type=click.File('rb'))
