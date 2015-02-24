@@ -22,3 +22,7 @@ Options:
   --silent                        Don't print debug messages, only recognized
                                   text.
   --help                          Show this message and exit.
+
+There is also optional support for pyaudio+portaudio. If you manage to install it see:
+
+  --record                        Grab audio from system audio input instead of files.
