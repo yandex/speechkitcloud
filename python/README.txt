@@ -1,4 +1,19 @@
-Usage: asrclient-cli.py [OPTIONS] [FILES]...
+Install:
+
+You need to provide some python dependencies. Suggest something like this...
+
+sudo apt-get install python2.7 python-setuptools python-pip git
+git clone https://github.com/yandex/speechkitcloud
+cd speechkitcloud/python
+python ./setup.py sdist
+cd dist
+sudo pip install <generated-file-name>
+
+
+Usage:
+
+asrclient-cli.py [OPTIONS] [FILES]...
+
 
 Options:
   -k, --key TEXT                  You could get it at
@@ -26,3 +41,25 @@ Options:
 There is also optional support for pyaudio+portaudio. If you manage to install it see:
 
   --record                        Grab audio from system audio input instead of files.
+
+
+Examples:
+
+asrclient-cli.py --help
+
+asrclient-cli.py --key=active-key-from-your-account sound.wav
+
+
+More:
+
+We expect incoming sound in specific format audio/x-pcm;bit=16;rate=16000 (single channel).
+To convert some random sound file to this, suggest
+
+sox sound.mp3 -t wav -c 1 --rate 16000 -b 16 -e signed-integer sound.wav
+
+
+Useful links:
+
+http://sox.sourceforge.net/ - sound conversion library and utility.
+https://pypi.python.org/pypi/pip - python package manager.
+https://developer.tech.yandex.ru - obtain your key.
