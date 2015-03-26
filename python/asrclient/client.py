@@ -22,6 +22,8 @@ DEFAULT_PORT_VALUE = 80
 DEFAULT_FORMAT_VALUE = 'audio/x-pcm;bit=16;rate=16000'
 # 'audio/x-pcm;bit=16;rate=8000' # use this format for 8k bitrate wav and pcm
 
+DEFAULT_MODEL_VALUE = 'freeform'
+
 DEFAULT_CHUNK_SIZE_VALUE = 1024*32*2
 DEFAULT_RECONNECT_DELAY = 0.5
 DEFAULT_RECONNECT_RETRY_COUNT = 5
@@ -196,13 +198,12 @@ def recognize(chunks,
               key=DEFAULT_KEY_VALUE,
               app='local',
               service='dictation',
-              topic='freeform',
+              topic=DEFAULT_MODEL_VALUE,
               lang='ru-RU',
               reconnect_delay=DEFAULT_RECONNECT_DELAY,
               reconnect_retry_count=DEFAULT_RECONNECT_RETRY_COUNT,
               pending_limit=DEFAULT_PENDING_LIMIT):
 
-    
     class PendingRecognition(object):
         def __init__(self):
             self.logger = logging.getLogger('asrclient')

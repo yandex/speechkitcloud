@@ -23,6 +23,11 @@ Options:
   -p, --port INTEGER              Default is 80.
   --format TEXT                   Input file format. Default is
                                   audio/x-pcm;bit=16;rate=16000.
+  --model TEXT                    Recognition model. freeform | freeform8alaw.
+                                  Use the last one if your sound comes from a
+                                  phone call. It's just a model name, sound
+                                  format may be different. Default is
+                                  freeform.
   --chunk-size INTEGER            Default value 32768 bytes roughly equals to
                                   one second of audio in default format.
   --start-with-chunk INTEGER      Use it to send only some part of the input
