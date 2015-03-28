@@ -1,4 +1,5 @@
 function SpeexConverter(samplerate) {
+        this.samplerate = samplerate;
         this.first_package = true;
         
         if (samplerate == 8000) 
@@ -17,6 +18,7 @@ SpeexConverter.prototype = {
     }
     ,
     convert: function(inputBuffer) {
+        var samplerate = this.samplerate;
         var mode = samplerate==32000?2:(samplerate==16000?1:0);
         var frame_size = this.speex_codec.frame_size;
         var buf_size = 1024;
