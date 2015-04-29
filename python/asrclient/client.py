@@ -62,7 +62,7 @@ class ServerError(RuntimeError):
 
 class ServerConnection(object):
 
-    def __init__(self, host, port, key, app, service, topic, lang, format, logger=None):
+    def __init__(self, host, port, key, app, service, topic, lang, format, logger=None, punctuation=True):
         self.host = host
         self.port = port
         self.key = key
@@ -73,6 +73,7 @@ class ServerConnection(object):
         self.format = format
         self.uuid = randomUuid().hex
         self.logger = logger
+        self.punctuation = punctuation
 
         self.log("uuid={0}".format(self.uuid))
 
@@ -114,7 +115,8 @@ class ServerConnection(object):
             coords='0, 0',
             topic=self.topic,
             lang=self.lang,
-            format=self.format)
+            format=self.format,
+            punctuation=self.punctuation)
 
         self.t.sendProtobuf(request)
         return self.t.recvProtobuf(ConnectionResponse)
@@ -202,12 +204,13 @@ def recognize(chunks,
               lang='ru-RU',
               reconnect_delay=DEFAULT_RECONNECT_DELAY,
               reconnect_retry_count=DEFAULT_RECONNECT_RETRY_COUNT,
-              pending_limit=DEFAULT_PENDING_LIMIT):
+              pending_limit=DEFAULT_PENDING_LIMIT,
+              punctuation=True):
 
     class PendingRecognition(object):
         def __init__(self):
             self.logger = logging.getLogger('asrclient')
-            self.server = ServerConnection(host, port, key, app, service, topic, lang, format, self.logger)
+            self.server = ServerConnection(host, port, key, app, service, topic, lang, format, self.logger, punctuation)
             self.unrecognized_chunks = []
             self.retry_count = 0
             self.pending_answers = 0

@@ -53,11 +53,15 @@ except exceptions.ImportError:
 @click.option('--record',
               is_flag=True,
               help='Grab audio from system audio input instead of files.')
+@click.option('--nopunctuation',
+              is_flag=True,
+              help='Disable punctuation.')
+
 
 @click.argument('files',
                 nargs=-1,
                 type=click.File('rb'))
-def main(key, server, port, format, model, chunk_size, start_with_chunk, max_chunks_count, silent, reconnect_delay, reconnect_retry_count, record, files):
+def main(key, server, port, format, model, chunk_size, start_with_chunk, max_chunks_count, silent, reconnect_delay, reconnect_retry_count, record, nopunctuation, files):
     if not silent:
         logging.basicConfig(level=logging.INFO)
 
@@ -86,7 +90,8 @@ def main(key, server, port, format, model, chunk_size, start_with_chunk, max_chu
                          format=format,
                          topic=model,
                          reconnect_delay=reconnect_delay,
-                         reconnect_retry_count=reconnect_retry_count)
+                         reconnect_retry_count=reconnect_retry_count,                         
+                         punctuation=not nopunctuation)
 
 if __name__ == "__main__":
         main()
