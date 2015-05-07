@@ -21,6 +21,6 @@ ya.speechkit.recognize({
 &nbsp;&nbsp;&nbsp;&nbsp;console.log("Something gone wrong: " + err);  
 &nbsp;&nbsp;},  
 &nbsp;&nbsp;model: 'freeform', // Model name for recognition process  
-&nbsp;&nbsp;lang: 'ru-RU', //Language for recognition process,
+&nbsp;&nbsp;lang: 'ru-RU', //Language for recognition process  
 &nbsp;&nbsp;apiKey: PUT_YOUR_API_KEY_HERE,
 });_
