@@ -30,7 +30,7 @@ DEFAULT_RECONNECT_RETRY_COUNT = 5
 DEFAULT_PENDING_LIMIT = 50
 
 
-def read_chunks_from_pyaudio(chunk_size):
+def read_chunks_from_pyaudio(chunk_size = DEFAULT_CHUNK_SIZE_VALUE):
     import pyaudio
     p = pyaudio.PyAudio()
     stream = p.open(format=pyaudio.paInt16,
