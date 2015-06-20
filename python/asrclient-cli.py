@@ -74,7 +74,7 @@ def main(key, server, port, format, model, chunk_size, start_with_chunk, max_chu
     else:
         if record:
             if is_pyaudio:
-                chunks = client.read_chunks_from_pyaudio()
+                chunks = client.read_chunks_from_pyaudio(chunk_size)
             else:
                 click.echo('Please install pyaudio module for system audio recording.')
                 sys.exit(-2)
