@@ -23,6 +23,9 @@ DEFAULT_FORMAT_VALUE = 'audio/x-pcm;bit=16;rate=16000'
 # 'audio/x-pcm;bit=16;rate=8000' # use this format for 8k bitrate wav and pcm
 
 DEFAULT_MODEL_VALUE = 'freeform'
+DEFAULT_LANG_VALUE = 'ru-RU'
+
+DEFAULT_UUID_VALUE = randomUuid().hex
 
 DEFAULT_CHUNK_SIZE_VALUE = 1024*32*2
 DEFAULT_RECONNECT_DELAY = 0.5
@@ -62,7 +65,7 @@ class ServerError(RuntimeError):
 
 class ServerConnection(object):
 
-    def __init__(self, host, port, key, app, service, topic, lang, format, logger=None, punctuation=True):
+    def __init__(self, host, port, key, app, service, topic, lang, format, uuid, logger=None, punctuation=True, ipv4=False):
         self.host = host
         self.port = port
         self.key = key
@@ -71,9 +74,10 @@ class ServerConnection(object):
         self.service = service
         self.lang = lang
         self.format = format
-        self.uuid = randomUuid().hex
+        self.uuid = uuid
         self.logger = logger
         self.punctuation = punctuation
+        self.ipv4 = ipv4
 
         self.log("uuid={0}".format(self.uuid))
 
@@ -86,7 +90,7 @@ class ServerConnection(object):
             self.logger.info(message)
 
     def connect(self):
-        self.t = Transport(self.host, self.port, timeout=None, verbose=False)
+        self.t = Transport(self.host, self.port, timeout=None, verbose=False, enable_ssl=(self.port==443), ipv4=self.ipv4)
         if not self.upgrade_connection():
             raise ServerError('Unable to upgrade connection')
         self.log("Connected to {0}:{1}.".format(self.host, self.port))
@@ -201,16 +205,18 @@ def recognize(chunks,
               app='local',
               service='dictation',
               topic=DEFAULT_MODEL_VALUE,
-              lang='ru-RU',
+              lang=DEFAULT_LANG_VALUE,
+              uuid=DEFAULT_UUID_VALUE,
               reconnect_delay=DEFAULT_RECONNECT_DELAY,
               reconnect_retry_count=DEFAULT_RECONNECT_RETRY_COUNT,
               pending_limit=DEFAULT_PENDING_LIMIT,
+              ipv4=False,
               punctuation=True):
 
     class PendingRecognition(object):
         def __init__(self):
             self.logger = logging.getLogger('asrclient')
-            self.server = ServerConnection(host, port, key, app, service, topic, lang, format, self.logger, punctuation)
+            self.server = ServerConnection(host, port, key, app, service, topic, lang, format, uuid, self.logger, punctuation, ipv4)
             self.unrecognized_chunks = []
             self.retry_count = 0
             self.pending_answers = 0

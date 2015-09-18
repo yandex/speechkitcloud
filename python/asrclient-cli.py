@@ -31,6 +31,9 @@ except exceptions.ImportError:
 @click.option('--model',
               help='Recognition model. freeform | freeform8alaw. Use the last one if your sound comes from a phone call. It\'s just a model name, sound format may be different. Default is {0}.'.format(client.DEFAULT_MODEL_VALUE),
               default=client.DEFAULT_MODEL_VALUE)
+@click.option('--lang',
+              help='Recognition language. ru-RU | en-EN | tr-TR | uk-UA. Default is {0}.'.format(client.DEFAULT_LANG_VALUE),
+              default=client.DEFAULT_LANG_VALUE)
 @click.option('--chunk-size',
               default=client.DEFAULT_CHUNK_SIZE_VALUE,
               help='Default value {0} bytes roughly equals to one second of audio in default format.'.format(client.DEFAULT_CHUNK_SIZE_VALUE))
@@ -56,12 +59,17 @@ except exceptions.ImportError:
 @click.option('--nopunctuation',
               is_flag=True,
               help='Disable punctuation.')
-
+@click.option('--uuid',
+              default=client.DEFAULT_UUID_VALUE,
+              help='UUID of your request. It can be helpful for further logs analysis. Default is random.')
+@click.option('--ipv4',
+              is_flag=True,
+              help='Use ipv4 only connection.')
 
 @click.argument('files',
                 nargs=-1,
                 type=click.File('rb'))
-def main(key, server, port, format, model, chunk_size, start_with_chunk, max_chunks_count, silent, reconnect_delay, reconnect_retry_count, record, nopunctuation, files):
+def main(key, server, port, format, model, lang, chunk_size, start_with_chunk, max_chunks_count, silent, reconnect_delay, reconnect_retry_count, record, ipv4, nopunctuation, uuid, files):
     if not silent:
         logging.basicConfig(level=logging.INFO)
 
@@ -89,8 +97,11 @@ def main(key, server, port, format, model, chunk_size, start_with_chunk, max_chu
                          key=key,
                          format=format,
                          topic=model,
+                         lang=lang,
                          reconnect_delay=reconnect_delay,
                          reconnect_retry_count=reconnect_retry_count,                         
+                         uuid=uuid,
+                         ipv4=ipv4,
                          punctuation=not nopunctuation)
 
 if __name__ == "__main__":

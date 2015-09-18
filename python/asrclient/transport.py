@@ -9,7 +9,7 @@ class TransportError(RuntimeError):
         RuntimeError.__init__(self, message)
 
 class Transport:
-    def __init__(self, ip, port, timeout=25, verbose=True, enable_ssl = False):
+    def __init__(self, ip, port, timeout=25, verbose=True, enable_ssl = False, ipv4 = False):
         self.verbose = verbose
         tries = 5
         while tries > 0:
@@ -18,7 +18,7 @@ class Transport:
                     print 'Trying to connect ' + ip + ":" + str(port)
                     print "Tries left: " + str(tries)
                 if enable_ssl:
-                    s = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+                    s = socket.socket(socket.AF_INET if ipv4 else socket.AF_INET6, socket.SOCK_STREAM)
                     ssl_sock = ssl.wrap_socket(s)
                     ssl_sock.connect((ip, port))
                     print repr(ssl_sock.getpeername())
