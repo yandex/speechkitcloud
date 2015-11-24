@@ -11,9 +11,9 @@ from uuid import uuid4 as randomUuid
 from socket import error as SocketError
 from google.protobuf.message import DecodeError as DecodeProtobufError
 from basic_pb2 import ConnectionResponse
-from voiceproxy_pb2 import ConnectionRequest, AddData, AddDataResponse
+from voiceproxy_pb2 import ConnectionRequest, AddData, AddDataResponse, AdvancedASROptions
 from transport import Transport, TransportError
-
+from threading import Thread
 
 DEFAULT_KEY_VALUE = 'paste-your-own-key'
 DEFAULT_SERVER_VALUE = 'asr.yandex.net'
@@ -31,6 +31,15 @@ DEFAULT_CHUNK_SIZE_VALUE = 1024*32*2
 DEFAULT_RECONNECT_DELAY = 0.5
 DEFAULT_RECONNECT_RETRY_COUNT = 5
 DEFAULT_PENDING_LIMIT = 50
+
+DEFAULT_INTER_UTT_SILENCE = 120
+DEFAULT_CMN_LATENCY = 50
+
+def bytes_in_sec(format):
+    if "8000" in format:
+        return 16000
+    else:
+        return 32000
 
 
 def read_chunks_from_pyaudio(chunk_size = DEFAULT_CHUNK_SIZE_VALUE):
@@ -65,7 +74,7 @@ class ServerError(RuntimeError):
 
 class ServerConnection(object):
 
-    def __init__(self, host, port, key, app, service, topic, lang, format, uuid, logger=None, punctuation=True, ipv4=False):
+    def __init__(self, host, port, key, app, service, topic, lang, format, uuid, inter_utt_silence, cmn_latency, logger=None, punctuation=True, ipv4=False):
         self.host = host
         self.port = port
         self.key = key
@@ -77,6 +86,8 @@ class ServerConnection(object):
         self.uuid = uuid
         self.logger = logger
         self.punctuation = punctuation
+        self.inter_utt_silence = inter_utt_silence
+        self.cmn_latency = cmn_latency
         self.ipv4 = ipv4
 
         self.log("uuid={0}".format(self.uuid))
@@ -120,7 +131,12 @@ class ServerConnection(object):
             topic=self.topic,
             lang=self.lang,
             format=self.format,
-            punctuation=self.punctuation)
+            punctuation=self.punctuation,
+            advancedASROptions=AdvancedASROptions(
+                                  utterance_silence=int(self.inter_utt_silence),
+                                  cmn_latency=self.cmn_latency
+                               )
+            )
 
         self.t.sendProtobuf(request)
         return self.t.recvProtobuf(ConnectionResponse)
@@ -199,63 +215,68 @@ class ServerConnection(object):
 def recognize(chunks,
               callback=None,
               format=DEFAULT_FORMAT_VALUE,
-              host=DEFAULT_SERVER_VALUE,
+              server=DEFAULT_SERVER_VALUE,
               port=DEFAULT_PORT_VALUE,
               key=DEFAULT_KEY_VALUE,
               app='local',
               service='dictation',
-              topic=DEFAULT_MODEL_VALUE,
+              model=DEFAULT_MODEL_VALUE,
               lang=DEFAULT_LANG_VALUE,
+              inter_utt_silence=DEFAULT_INTER_UTT_SILENCE,
+              cmn_latency=DEFAULT_CMN_LATENCY,
               uuid=DEFAULT_UUID_VALUE,
               reconnect_delay=DEFAULT_RECONNECT_DELAY,
               reconnect_retry_count=DEFAULT_RECONNECT_RETRY_COUNT,
               pending_limit=DEFAULT_PENDING_LIMIT,
               ipv4=False,
-              punctuation=True):
+              nopunctuation=False,
+              realtime=False):
 
     class PendingRecognition(object):
         def __init__(self):
             self.logger = logging.getLogger('asrclient')
-            self.server = ServerConnection(host, port, key, app, service, topic, lang, format, uuid, self.logger, punctuation, ipv4)
+            self.server = ServerConnection(server, port, key, app, service, model, lang, format, uuid, inter_utt_silence, cmn_latency, self.logger, not nopunctuation, ipv4)
             self.unrecognized_chunks = []
             self.retry_count = 0
             self.pending_answers = 0
             self.chunks_answered = 0
             self.utterance_start_index = 0
+            self.thread = Thread(target=self.check_result)
+
+        def check_result(self):
+            while True:
+                try:
+                    self.gotresult(*self.server.get_utterance_if_ready())
+                    time.sleep(0.01)
+                except Exception as e:
+                    if self.pending_answers > 0:
+                        print e
+                    return
+
+        def gotresult(self, utterance, messagesCount):
+            self.chunks_answered += messagesCount
+            self.pending_answers -= messagesCount
+
+            self.retry_count = 0
+            if utterance is not None:
+                self.logger.info('Utterance is not None')
+                if utterance != "":
+                    self.logger.info('Chunks from {0} to {1}:'.format(self.utterance_start_index, self.utterance_start_index + self.chunks_answered))
+                    if callback is not None:
+                        callback(utterance)
+                    del self.unrecognized_chunks[:self.chunks_answered]
+                    self.utterance_start_index += self.chunks_answered
+                    self.chunks_answered = 0
+                    self.logger.info("got utterance: start index {0}, pending answers {1}, chunks answered {2}".format(self.utterance_start_index, self.pending_answers, self.chunks_answered))
+                else:
+                    self.logger.info("utterance incomplete, hiding partial result")
 
         def send(self, chunk):
             self.logger.info("entering send() :start index {0}, pending answers {1}, chunks answered {2}".format(self.utterance_start_index, self.pending_answers, self.chunks_answered))
             try:
                 self.server.add_data(chunk)
                 self.pending_answers += 1
-
-                while self.pending_answers > 0:  
-                    utterance, messagesCount = state.server.get_utterance_if_ready()
-                    self.chunks_answered += messagesCount
-                    self.pending_answers -= messagesCount
-
-                    self.retry_count = 0
-                    if utterance is not None:
-                        self.logger.info('Utterance is not None')
-                        if utterance != "":
-                            self.logger.info('Chunks from {0} to {1}:'.format(self.utterance_start_index, self.utterance_start_index + self.chunks_answered))
-                            if callback is not None:
-                                callback(utterance)
-                            del self.unrecognized_chunks[:self.chunks_answered]
-                            self.utterance_start_index += self.chunks_answered
-                            self.chunks_answered = 0
-                            self.logger.info("got utterance: start index {0}, pending answers {1}, chunks answered {2}".format(self.utterance_start_index, self.pending_answers, self.chunks_answered))
-                        else:
-                            self.logger.info("utterance incomplete, hiding partial result")
-                    else:
-                        if chunk is None:
-                            continue
-                        elif self.pending_answers > pending_limit:
-                            continue
-                        else:
-                            self.logger.info('leaving send()')
-                            break
-
+                    
             except (DecodeProtobufError, ServerError, TransportError, SocketError) as e:
                 global retry_count
                 self.logger.info('Connection lost! ({0})'.format(type(e)))
@@ -282,15 +303,24 @@ def recognize(chunks,
     
     state.logger.info('Recognition was started.')
     chunks_count = 0
+    state.thread.start()
+    
+    sent_length = 0
     for index, chunk in enumerate(chunks):
+        while realtime and (sent_length / bytes_in_sec(format) > time.time() - start_at):
+            time.sleep(0.01)
         state.logger.info('About to send chunk {0} ({1} bytes)'.format(index, len(chunk)))
-        state.unrecognized_chunks.append(chunk)
+        state.unrecognized_chunks.append(chunk)        
         state.send(chunk)
         chunks_count = index + 1
-
+        sent_length += len(chunk)
+    
     state.logger.info('No more chunks. Finalizing recognition.')
     state.unrecognized_chunks.append(None)
     state.send(None)
+    
+    state.thread.join()
+
     state.logger.info('Recognition is done.')
 
     fin_at = time.time()

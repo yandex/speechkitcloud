@@ -47,6 +47,13 @@ except exceptions.ImportError:
 @click.option('--reconnect-delay',
               default=client.DEFAULT_RECONNECT_DELAY,
               help='Take a pause in case of network problems. Default value is {0} seconds.'.format(client.DEFAULT_RECONNECT_DELAY))
+@click.option('--inter-utt-silence',
+              default=client.DEFAULT_INTER_UTT_SILENCE,
+              type=float,
+              help='A pause between phrases finalization. Default value is {0} seconds.'.format(client.DEFAULT_INTER_UTT_SILENCE/100.0))
+@click.option('--cmn-latency',
+              default=client.DEFAULT_CMN_LATENCY,
+              help='CMN latecny parameter. Default value is {0}.'.format(client.DEFAULT_CMN_LATENCY))
 @click.option('--reconnect-retry-count',
               default=client.DEFAULT_RECONNECT_RETRY_COUNT,
               help='Sequentional reconnects before giving up. Default is {0}.'.format(client.DEFAULT_RECONNECT_RETRY_COUNT))
@@ -65,11 +72,13 @@ except exceptions.ImportError:
 @click.option('--ipv4',
               is_flag=True,
               help='Use ipv4 only connection.')
-
+@click.option('--realtime',
+              is_flag=True,
+              help='Emulate realtime record recognition.')
 @click.argument('files',
                 nargs=-1,
                 type=click.File('rb'))
-def main(key, server, port, format, model, lang, chunk_size, start_with_chunk, max_chunks_count, silent, reconnect_delay, reconnect_retry_count, record, ipv4, nopunctuation, uuid, files):
+def main(chunk_size, start_with_chunk, max_chunks_count, record, files, silent, **kwars):
     if not silent:
         logging.basicConfig(level=logging.INFO)
 
@@ -92,17 +101,7 @@ def main(key, server, port, format, model, lang, chunk_size, start_with_chunk, m
     else:
         client.recognize(chunks,
                          callback=click.echo,
-                         host=server,
-                         port=port,
-                         key=key,
-                         format=format,
-                         topic=model,
-                         lang=lang,
-                         reconnect_delay=reconnect_delay,
-                         reconnect_retry_count=reconnect_retry_count,                         
-                         uuid=uuid,
-                         ipv4=ipv4,
-                         punctuation=not nopunctuation)
+                         **kwars)
 
 if __name__ == "__main__":
         main()

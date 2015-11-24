@@ -15,6 +15,27 @@ message MusicRequest
   repeated MusicParam musicProxyOptions = 1;
 }
 
+message AdvancedASROptions
+{
+  optional bool partial_results = 1 [default = true];
+
+  optional float beam = 2 [default = -1];
+
+  optional float lattice_beam = 3 [default = -1];
+
+  optional int32 lattice_nbest = 4 [default = -1];
+
+  optional int32 utterance_silence = 5 [default = 120];
+
+  optional bool allow_multi_utt = 16 [default = true];
+
+  optional int32 chunk_process_limit = 17 [default = 100];
+
+  optional int32 cmn_window = 18 [default = 600];
+
+  optional int32 cmn_latency = 19 [default = 150];
+}
+
 message ConnectionRequest
 {
   optional int32 protocolVersion = 1 [default = 1];
@@ -52,6 +73,10 @@ message ConnectionRequest
   optional MusicRequest musicRequest = 17;
 
   optional bool disableAntimatNormalizer = 18 [default = false];
+
+  optional AdvancedASROptions advancedASROptions = 19;
+
+  optional bool skipAudioFromLogging = 20 [default = false];
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -65,11 +90,28 @@ message AddData
 
 ///////////////////////////////////////////////////////////////////////////
 
+message AlignInfo
+{
+  optional float start_time = 1;
+
+  optional float end_time = 2;
+  
+  optional float acoustic_score = 3;
+
+  optional float graph_score = 4;
+
+  optional float lm_score = 5;
+   
+  optional float total_score = 6;
+}
+
 message Word
 {
   required float confidence = 1;
 
   required string value = 2;
+
+  optional VoiceProxyProtobuf.AlignInfo align_info = 3;
 }
 
 message Result
@@ -79,6 +121,8 @@ message Result
   repeated Word words = 2;
 
   optional string normalized = 3;
+
+  optional VoiceProxyProtobuf.AlignInfo align_info = 4;
 }
 
 message AddDataResponse

@@ -30,6 +30,7 @@ message ConnectionResponse
     ProtocolError = 410;
     InternalError = 500;
     InvalidKey = 429;
+    InvalidRequestParams = 406;
 	}
 }
 
