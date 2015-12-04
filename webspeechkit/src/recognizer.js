@@ -9,38 +9,53 @@
     }
 
     /**
-     * Creates a new recognition session
-     * @class
-     * @classdesc Class for low-level recognition process control
-     * @param {Object} options Set of callbacks for initialization, recoginition and error handling
-     * @param {Recognizer~initCallback} options.onInit - Callback to be called upon successful session initialization
-     * @param {Recognizer~dataCallback} options.onResult Callback to be called with recognized data
-     * @param {Recognizer~errorCallback} options.onError Callback to be called upon error
-     * @param {String} options.uuid - Recognition session UUID (defaults to ya.speechkit.settings.uuid)
-     * @param {String} options.key - API key (defaults to ya.speechkit.settings.apiKey)
-     * @param {ya.speechkit.FORMAT} options.format - Format of audio stream (defaults to ya.speechkit.settings.format)
-     * @param {String} options.url - URL for recognition process (defaults to ya.speechkit.settings.asrUrl)
-     * @param {Boolean} options.punctuation - Will recognition try to make punctuation or not (defaults to True)
-     * @param {String} options.model - Model for recognition (defaults to ya.speechkit.settings.model)
-     * @param {String} options.lang - Language for recognition (defaults to ya.speechkit.settings.lang)
-     * @memberof ya.speechkit
-     * @alias Recognizer
+     * Создает новый объект типа Recognizer.
+     * @class Создает сессию и отправляет запрос на сервер для распознавания речи.
+     * @name Recognizer
+     * @param {Object} [options] Опции.
+     * @param {callback:initCallback} [options.onInit] Функция-обработчик, которая будет вызвана после успешной инициализации
+     * сессии.
+     * @param {callback:dataCallback} [options.onResult] Функция-обработчик, которая будет вызвана после завершения распознавания речи.
+     * @param {callback:errorCallback} [options.onError]
+     * @param {String} [options.uuid=см. описание] UUID сессии. По умолчанию принимает значение, указанное
+     * в настройках ya.speechkit.settings.uuid.
+     * @param {String} [options.key=см. описание] API-ключ. Если не задан, то используется ключ, указанный
+     * в настройках ya.speechkit.settings.apiKey.
+     * @param {ya.speechkit.FORMAT} [options.format=ya.speechkit.FORMAT.PCM16] Формат аудиопотока.
+     * @param {String} [options.url=см. описание] URL сервера, на котором будет производиться распознавание.
+     * Если параметр не указан, то берется значение, заданное в настройках ya.speechkit.settings.asrUrl. По умолчанию оно равно
+     * 'webasr.yandex.net/asrsocket.ws'.
+     * @param {Boolean} [options.punctuation=true] Использовать ли пунктуацию.
+     * @param {Boolean} [options.allowStrongLanguage=false] Отключить фильтрацию обсценной лексики.
+     * @param {String} [options.model=см. описание] Языковая модель, которая должна быть использована при распознавании.
+     * Если параметр не указан, то используется значение, заданное в настройках ya.speechkit.model. Если в настройках значение не задано, то
+     * используется модель 'freeform'.
+     * @param {String} [options.lang=см. описание] Язык распознавания. По умолчанию принимает значение, указанное
+     * в настройках ya.speechkit.settings.lang.
+     * @param {String} [options.applicationName] Название приложения. Для некоторых приложений мы поддерживаем специальную логику. Пример - sandbox.
      */
     var Recognizer = function (options) {
         if (!(this instanceof namespace.ya.speechkit.Recognizer)) {
-            return new namespace.ya.speechkit.Recognizer();
+            return new namespace.ya.speechkit.Recognizer(options);
         }
         this.options = namespace.ya.speechkit._extend(
-                        {key: namespace.ya.speechkit.settings.apiKey,
+                        {apiKey: namespace.ya.speechkit.settings.apiKey,
                          uuid: namespace.ya.speechkit.settings.uuid,
+                         applicationName: namespace.ya.speechkit.settings.applicationName,
                          url: namespace.ya.speechkit.settings.websocketProtocol +
                             namespace.ya.speechkit.settings.asrUrl,
                          onInit: function () {},
                          onResult: function () {},
                          onError: function () {},
                          punctuation: true,
+                         allowStrongLanguage: false
                         },
                         options);
+
+        // Backward compatibility
+        this.options.key = this.options.apiKey;
+        this.options.format = this.options.format.mime;
+
         this.sessionId = null;
         this.socket = null;
 
@@ -48,10 +63,10 @@
         this.totaldata = 0;
     };
 
-    Recognizer.prototype = {
+    Recognizer.prototype = /** @lends Recognizer.prototype */{
         /**
-         * Send raw data to websocket
-         * @param data Any data to send to websocket (json string, raw audio data)
+         * Send raw data to websocket.
+         * @param data Any data to send to websocket (json string, raw audio data).
          * @private
          */
         _sendRaw: function (data) {
@@ -60,22 +75,29 @@
             }
         },
         /**
-         * Stringify JSON and send it to websocket
-         * @param {Object} json Object needed to be send to websocket
+         * Stringify JSON and send it to websocket.
+         * @param {Object} json Object needed to be send to websocket.
          * @private
          */
         _sendJson: function (json) {
             this._sendRaw(JSON.stringify({type: 'message', data: json}));
         },
         /**
-         * Starts recognition process
+         * Запускает процесс распознавания.
          */
         start: function () {
-            this.socket = new WebSocket(this.options.url);
+            this.sessionId = null;
+            try {
+                this.socket = new WebSocket(this.options.url);
+            } catch (e) {
+                this.options.onError('Error on socket creation: ' + e);
+                this.options.stopCallback();
+                return;
+            }
 
             this.socket.onopen = function () {
                 // {uuid: uuid, key: key, format: audioFormat, punctuation: punctuation ...
-                // console.log("Initial request: " + JSON.stringify(this.options));
+                // console.log('Initial request: ' + JSON.stringify(this.options));
                 this._sendJson(this.options);
             }.bind(this);
 
@@ -86,7 +108,10 @@
                     this.sessionId = message.data.sessionId;
                     this.options.onInit(message.data.sessionId, message.data.code);
                 } else if (message.type == 'AddDataResponse'){
-                    this.options.onResult(message.data.text, message.data.uttr, message.data.merge);
+                    this.options.onResult(message.data.text, message.data.uttr, message.data.merge, message.data.words);
+                    if (typeof message.data.close !== 'undefined' && message.data.close) {
+                        this.close();
+                    }
                 } else if (message.type == 'Error'){
                     this.options.onError('Session ' + this.sessionId + ': ' + message.data);
                     this.close();
@@ -104,9 +129,10 @@
             }.bind(this);
         },
         /**
-         * Sends data for recognition
-         * @description If there is no active session, then data will be buffered and sent after session establishment
-         * @param {ArrayBuffer} data Raw audio data
+         * Добавляет данные с аудио к потоку для распознавания речи.
+         * Если сессия распознавания еще не была создана, то данные будут буферизованы и отправятся на сервер
+         * по факту установления соединения.
+         * @param {ArrayBuffer} data Буфер с аудио сигналом в формате PCM 16bit.
          */
         addData: function (data) {
             this.totaldata += data.byteLength;
@@ -125,13 +151,22 @@
             this._sendRaw(new Blob([data], {type: this.options.format}));
         },
         /**
-         * Closes recognition session
+         * Принудительно завершает запись звука и отсылает запрос (не закрывает сессию распознавания, пока не получит от сервера последний ответ).
+         */
+        finish: function () {
+            this._sendJson({command: 'finish'});
+        },
+        /**
+         * Завершает сессию распознавания речи, закрывая соединение с сервером.
          */
         close: function () {
-            this.options = {onInit: function () {}, onResult: function () {}, onError: function () {}};
+            this.options.onInit = function () {};
+            this.options.onResult = this.options.onInit;
+            this.options.onError = this.options.onInit;
 
             if (this.socket) {
                 this.socket.close();
+                this.options.stopCallback();
             }
             this.socket = null;
         }
@@ -140,23 +175,30 @@
     namespace.ya.speechkit.Recognizer = Recognizer;
 
     /**
-     * Callback for successful recognition session initialization
-     * @callback Recognizer~initCallback
-     * @param {String} sessionId - Session identifier
-     * @param {Number} code - Http status of initialization response
+     * Функция-обработчик, которая будет вызвана после успешной инициализации
+     * сессии.
+     * @callback
+     * @name initCallback
+     * @param {String} sessionId Идентификатор сессии.
+     * @param {Number} code HTTP-статус, который будет содержаться в ответе сервера после инициализации сессии (200).
+     * @memberOf Recognizer
      */
 
     /**
-     * Callback for recognition error message
-     * @callback Recognizer~errorCallback
-     * @param {String} message - Error message
+     * Функция-обработчик, которая будет вызвана в случае возникновения ошибки.
+     * @callback
+     * @name errorCallback
+     * @param {String} message Текст сообщения об ошибке.
+     * @memberOf Recognizer
      */
 
     /**
-     * Callback for recognition error message
-     * @callback Recognizer~dataCallback
-     * @param {String} text - Recognized text
-     * @param {Boolean} utterance - Is this a final text result for this utterance
-     * @param {Number} merge - How many requests were merged in this response
+     * Функция-обработчик, которая будет вызвана после завершения распознавания речи.
+     * @callback
+     * @name dataCallback
+     * @param {String} text Распознанный текст.
+     * @param {Boolean} utterance Является ли данный текст финальным результатом распознавания.
+     * @param {Number} merge Число обработанных запросов по которым выдан ответ. (Сколько пакетов с данными были соединены в этот результат).
+     * @memberOf Recognizer
      */
 }(this));

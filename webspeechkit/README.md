@@ -7,6 +7,7 @@ To do this go [here](https://developer.tech.yandex.ru) and get an API key for Ya
 Add Yandex.SpeechKit Web scripts from Yandex CDN to your web page:
 
 `<script type="text/javascript" src="//download.yandex.ru/webspeechkit/webspeechkit-1.0.0.js"></script>`
+`<script type="text/javascript" src="//download.yandex.ru/webspeechkit/webspeechkit-settings.js"></script>`
 
 ####Use API to create wonderful voice interfaces
 Write some code for speech recognition logic.
@@ -28,5 +29,22 @@ window.onload = function() {
         lang: 'ru-RU', //Language for recognition process
         apiKey: PUT_YOUR_API_KEY_HERE
     });
+};
+```
+
+Simple synthesis:
+
+```
+window.onload = function() {
+    var tts = ya.speechkit.Tts(
+        {
+            speaker: 'jane',
+            emotion: 'good',
+            gender: 'female'
+        });
+    tts.speak(
+        {
+            text: '1 2 3'
+        });
 };
 ```

@@ -50,18 +50,27 @@
     ' </svg>';
 
     namespace.ya.speechkit.Textline = function (target, options) {
-        this.element = document.getElementById(target);
-        this.textinput = document.createElement('input');
-        this.textinput.style['text-align'] = 'center';
-        this.textinput.style.height = '100%';
-        this.textinput.style.width = '100%';
+        var el = document.getElementById(target);
+        if (el.tagName != 'INPUT') {
+            this.element = el;
+            this.textinput = document.createElement('input');
+            this.textinput.style.height = '100%';
+            this.textinput.style.width = '100%';
+        } else {
+            this.textinput = el;
+            this.element = null;
+        }
         this.textinput.style.backgroundImage = 'url(\'data:image/svg+xml;utf8,' +
                                                 namespace.ya.speechkit._mic_off + '\')';
         this.textinput.style.backgroundRepeat = 'no-repeat';
         this.textinput.style.backgroundPosition = 'right center';
-        this.element.appendChild(this.textinput);
+        if (this.element) {
+            this.element.appendChild(this.textinput);
+        }
 
         this.dict = null;
+
+        this.final_result = '';
 
         var _this = this;
 
@@ -75,13 +84,16 @@
             }
         };
 
+        options = options || {};
+
         options.dataCallback = function (text, uttr, merge) {
             _this.textinput.value = text;
             if (uttr) {
                 if (options.onInputFinished) {
+                    _this.final_result = text;
                     options.onInputFinished(text);
                 }
-                _this.dict.stop();
+                _this.dict.abort();
             }
         };
 
@@ -117,8 +129,17 @@
                 if (_this.dict) {
                     _this.dict.stop();
                 }
-                _this.element.removeChild(_this.textinput);
+                _this.textinput.style.backgroundImage = '';
+                _this.textinput.onmousedown = function () {};
+                _this.textinput.onmousemove = function () {};
+
+                if (_this.element) {
+                    _this.element.removeChild(_this.textinput);
+                }
             },
+            value: function () {
+                return _this.final_result;
+            }
         };
     };
 }(this));

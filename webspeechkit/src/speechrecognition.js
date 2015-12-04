@@ -11,21 +11,23 @@
     function noop() {}
 
     /**
-    * Default options for SpeechRecognition
+    * Параметры по умолчанию для SpeechRecognition
     * @private
     */
     namespace.ya.speechkit._defaultOptions = function () {
         /**
          * @typedef {Object} SpeechRecognitionOptions
-         * @property {SpeechRecognition~initCallback} initCallback - Callback to call upon successful initialization
-         * @property {SpeechRecognition~errorCallback} errorCallback - Callback to call upon error
-         * @property {SpeechRecognition~dataCallback} dataCallback - Callback for partialy recognized text
-         * @property {SpeechRecognition~infoCallback} infoCallback - Callback for technical data
-         * @property {SpeechRecognition~stopCallback} stopCallback - Callback for recognition stop
-         * @property {Boolean} punctuation - Will you need some punctuation
-         * @property {String} model - Model to use for recognition
-         * @property {String} lang - Language to use for recognition
-         * @property {ya.speechkit.FORMAT} format - Format for audio record
+         * @property {SpeechRecognition~initCallback} initCallback - Функция, которая будет вызвана по факту инициализации сессии распознавания
+         * @property {SpeechRecognition~errorCallback} errorCallback - Функция, которая будет вызвана по факту ошибки (все ошибки - критичны, и приводят к порче сессии)
+         * @property {SpeechRecognition~dataCallback} dataCallback - Функция, в которую будут приходить результаты распознавания
+         * @property {SpeechRecognition~infoCallback} infoCallback - Функция для технической информации
+         * @property {SpeechRecognition~stopCallback} stopCallback - Функция, которая будет вызвана в момент остановки сессии распознавания
+         * @property {Boolean} punctuation - Следует ли пытаться расставлять знаки препинания
+         * @property {Boolean} allowStringLanguage - Следует ли отключить фильтрацию обсценной лексики
+         * @property {String} model - Языковая модель для распознавания речи
+         * @property {String} lang - Язык, речь на котором следует распознавать
+         * @property {ya.speechkit.FORMAT} format - Формат передачи аудио сигнала
+         * @property {String} [options.applicationName] Название приложения. Для некоторых приложений мы поддерживаем специальную логику. Пример - sandbox.
          */
         return {
                 initCallback: noop,
@@ -34,10 +36,14 @@
                 infoCallback: noop,
                 stopCallback: noop,
                 punctuation: false,
+                allowStrongLanguage: false,
                 advancedOptions: {},
                 model: namespace.ya.speechkit.settings.model,
+                applicationName: namespace.ya.speechkit.settings.applicationName,
                 lang: namespace.ya.speechkit.settings.lang,
                 format: namespace.ya.speechkit.FORMAT.PCM16,
+                url: namespace.ya.speechkit.settings.websocketProtocol +
+                        namespace.ya.speechkit.settings.asrUrl,
                 vad: false,
                 speechStart: noop,
                 speechEnd: noop,
@@ -45,10 +51,9 @@
     };
 
     /**
-    * Creates a new SpeechRecognition session
-    * @class
-    * @classdesc A class for long speech recognition queries
-    * @memberof ya.speechkit
+    * Создает новый объект типа SpeechRecognition.
+    * @class Класс для распознавания большого потока аудио-сигнала.
+    * @name SpeechRecognition
     */
     var SpeechRecognition = function () {
         if (!(this instanceof namespace.ya.speechkit.SpeechRecognition)) {
@@ -62,10 +67,28 @@
         this.vad = null;
     };
 
-    SpeechRecognition.prototype = {
+    SpeechRecognition.prototype = /** @lends SpeechRecognition.prototype */ {
         /**
-         * Starts recording sound and it's recognition
-         * @param {SpeechRecognitionOptions} options - Options to use during recognition process
+         * Запускает процесс распознавания речи.
+         * @param {SpeechRecognitionOptions} [options] Параметры, которые будут использоваться во время сессии.
+         * @param {callback:initCallback} [options.initCallback] Функция-обработчик, которая будет вызвана по факту инициализации сессии распознавания.
+         * @param {callback:errorCallback} [options.errorCallback] Функция-обработчик, которая будет вызвана по факту ошибки (все ошибки критичны и приводят к завершению сессии).
+         * @param {callback:dataCallback} [options.dataCallback] Функция-обработчик, которая будет вызвана после успешного завершения
+         * распознавания. В качестве аргумента ей передаются результаты распознавания.
+         * @param {callback:infoCallback} [options.infoCallback] Функция для получения технической информации.
+         * @param {callback} [options.stopCallback] Функция-обработчик, которая будет вызвана в момент остановки сессии распознавания.
+         * @param {Boolean} [options.apiKey] API-ключ. Если не задан, то используется ключ, указанный
+         * в настройках ya.speechkit.settings.apiKey.
+         * @param {Boolean} [options.punctuation=false] Следует ли использовать пунктуацию.
+         * @param {Boolean} [options.allowStrongLanguage=false] Следует ли отключить фильтрацию обсценной лексики.
+         * @param {String} [options.model='freeform'] Языковая модель для распознавания речи. Если параметр не указан, то используется
+         * значение, заданное в настройках ya.speechkit.model. Если в настройках значение не задано, то
+         * используется модель по умолчанию - 'freeform'.
+         * @param {String} [options.applicationName] Название приложения. Для некоторых приложений мы поддерживаем специальную логику. Пример - sandbox.
+         * @param {String} [options.lang='ru-RU'] Язык, речь на котором следует распознавать. Если параметр не указан, то используется
+         * значение, заданное в настройках ya.speechkit.lang. Если в настройках значение не задано, то по умолчанию
+         * выбирается русский язык: 'ru-RU'.
+         * @param {ya.speechkit.FORMAT} [options.format=ya.speechkit.FORMAT.PCM16] Формат передачи аудио-сигнала.
          */
         start: function (options) {
             this.options = namespace.ya.speechkit._extend(
@@ -74,14 +97,28 @@
                                     namespace.ya.speechkit._defaultOptions()
                                 ),
                                 options);
-
-            if (namespace.ya.speechkit._recorderInited) {
-                this._onstart();
+            if (namespace.ya.speechkit.settings.lang_whitelist.indexOf(this.options.lang) >= 0) {
+                if (namespace.ya.speechkit._stream !== null) {
+                    this._onstart();
+                } else {
+                    namespace.ya.speechkit.initRecorder(
+                        this._onstart.bind(this),
+                        this.options.errorCallback
+                    );
+                }
             } else {
-                namespace.ya.speechkit.initRecorder(
-                    this._onstart.bind(this),
-                    this.options.errorCallback
-                );
+                var old_error_callback = this.options.errorCallback;
+                this.recorder = namespace.ya.speechkit.WebAudioRecognition(
+                    namespace.ya.speechkit._extend(
+                    this.options,
+                    {
+                        errorCallback: function (e) {
+                            this.recorder = null;
+                            old_error_callback(e);
+                        }.bind(this)
+                    }
+                    ));
+                this.recorder.start();
             }
         },
         /**
@@ -111,6 +148,7 @@
             }
 
             this.recognizer = new namespace.ya.speechkit.Recognizer(
+                namespace.ya.speechkit._extend(this.options,
                 {
                     onInit: function (sessionId, code) {
                         this.recorder.start(function (data) {
@@ -128,54 +166,73 @@
                             this.recognizer.addData(data);
                         }.bind(this), this.options.format);
 
-                        this.options.initCallback(sessionId, code);
+                        this.options.initCallback(sessionId, code, 'yandex');
                     }.bind(this),
-                    onResult: function (text, uttr, merge) {
+                    onResult: function (text, uttr, merge, words) {
                                 this.proc += merge;
-                                this.options.dataCallback(text, uttr, merge);
+                                this.options.dataCallback(text, uttr, merge, words);
                             }.bind(this),
                     onError: function (msg) {
-                                this.recorder.stop(function () {});
-                                this.recognizer.close();
-                                this.recognizer = null;
+                                if (this.recorder) {
+                                    this.recorder.stop(function () { this.recorder = null; }.bind(this));
+                                }
+                                if (this.recognizer) {
+                                    this.recognizer.close();
+                                    this.recognizer = null;
+                                }
                                 this.options.errorCallback(msg);
                             }.bind(this),
-
-                    model: this.options.model,
-                    lang: this.options.lang,
-                    format: this.options.format.mime,
-                    punctuation: this.options.punctuation,
-                    key: this.options.apiKey,
-                    advancedOptions: this.options.advancedOptions
-                });
+                }));
             this.recognizer.start();
         },
         /**
-         * Stops recognition process
-         * @description When recognition process will stop stopCallback will be called
+         * Завершает сессию распознавания речи.
+         * По завершении сессии будет вызвана функция-обработчик stopCallback.
          */
         stop: function () {
             if (this.recognizer) {
-                this.recognizer.close();
+                this.recognizer.finish();
             }
 
-            this.recorder.stop(
-                function () {
-                    this.recognizer = null;
-                    this.options.stopCallback();
-                }.bind(this)
-            );
+            if (this.recorder) {
+                this.recorder.stop(
+                    function () {
+                        this.recognizer = null;
+                        this.recorder = null;
+                    }.bind(this)
+                );
+            }
         },
         /**
-         * Sets recognition process to pause mode
-         * @description Heartbeet with empty sound will be send in pause mode to prevent session drop
+         * Прерывает сессию распознавания речи (не дожидается финального результата распознавания).
+         * По завершении сессии будет вызвана функция-обработчик stopCallback.
+         */
+        abort: function () {
+            if (this.recognizer) {
+                this.recognizer.close();
+            }
+            if (this.recorder) {
+                this.recorder.stop(
+                    function () {
+                        this.recognizer = null;
+                        this.recorder = null;
+                    }.bind(this)
+                );
+            }
+        },
+        /**
+         * Ставит сессию распознавания на паузу.
+         * Чтобы соединение с сервером не прерывалось и можно было моментально возобновить распознавание,
+         * на сервер периодически посылаются небольшие куски данных.
          */
         pause: function () {
-            this.recorder.pause();
+            if (this.recorder) {
+                this.recorder.pause();
+            }
         },
         /**
-         * Returns true if recognition session is in pause mode
-         * @returns {Boolean} True if recognition session is in pause mode
+         * Определяет, стоит ли на паузе сессия распознавания.
+         * @returns {Boolean} true, если сессия распознавания речи стоит на паузе, false - иначе.
          */
         isPaused: function () {
             return (!this.recorder || this.recorder.isPaused());
@@ -185,11 +242,36 @@
     ya.speechkit.SpeechRecognition = SpeechRecognition;
 
     /**
-    * Function for simple recognition
-    * @param {SpeechRecognitionOptions} options - Options to use during recognition process
-    * @param {recognitionDoneCallback} options.doneCallback - Callback for full recognized text
-    * @memberof ya.speechkit
-    */
+     * Функция для распознавания коротких фрагментов речи.
+     * <p> При вызове функции recognize() начинается запись звука с микрофона.
+     * Как только наступает тишина более чем на одну секунду, запись
+     * прекращается, и функция отправляет запрос на сервер для распознавания записанного фрагмента.</p>
+     * <p>Приемлемое качество распознавания обеспечивается на фрагментах длительностью не более 10 секунд.
+     * При более длительном фрагменте качество распознавания ухудшается.</p>
+     * @static
+     * @function
+     * @name recognize
+     * @param {SpeechRecognitionOptions} [options] Параметры распознавания речи.
+     * @param {callback:SpeechRecognition.initCallback} [options.initCallback] Функция-обработчик, которая будет вызвана по факту
+     * инициализации сессии распознавания.
+     * @param {callback:SpeechRecognition.errorCallback} [options.errorCallback] Функция-обработчик, которая будет вызвана при возникновении ошибки
+     * (все ошибки критичны и приводят к завершению сессии).
+     * @param {callback:SpeechRecognition.recognitionDoneCallback} [options.doneCallback] Функция-обработчик, в которую будет отправлен результат распознавания речи.
+     * @param {String} [options.apiKey=см. описание] API-ключ. По умолчанию принимает значение, указанное
+     * в настройках ya.speechkit.settings.apiKey.
+     * @param {String} [options.model=см. описание] Языковая модель для распознавания речи. Если параметр не указан, то используется
+     * значение, заданное в настройках ya.speechkit.model. Если в настройках значение не задано, то
+     * используется модель 'freeform'.
+     * @param {String} [options.applicationName] Название приложения. Для некоторых приложений мы поддерживаем специальную логику. Пример - sandbox.
+     * @param {String} [options.lang=см. описание] Язык, речь на котором следует распознавать. Если параметр не указан, то используется
+     * значение, заданное в настройках ya.speechkit.lang. Если в настройках значение не задано, то по умолчанию
+     * выбирается русский язык: 'ru-RU'.
+     * @param {Object} [advancedOptions] Дополнительные опции.
+     * @param {Boolean} [advancedOptions.partial_results=true] Отправлять ли на сервер промежуточные результаты.
+     * @param {Number} [advancedOptions.utterance_silence=120] Длительность промежутка тишины во время записи речи. Как только встречается
+     * такой перерыв в речи, запись звука останавливается, и записанный фрагмент речи отправляется на сервер.
+     */
+
     namespace.ya.speechkit.recognize = function (options) {
         var dict = new namespace.ya.speechkit.SpeechRecognition();
 
@@ -219,44 +301,55 @@
     };
 
     /**
-     * Callback for full recognized text
-     * @param {String} text - Recognized user speech
-     * @callback recognitionDoneCallback
-     *
+     * Функция, в которую передается полностью распознанный фрагмент текста.
+     * @param {String} text Распознанная речь.
+     * @callback
+     * @name recognitionDoneCallback
+     * @memberOf SpeechRecognition
      */
 
     /**
-     * Callback for successful recognition session initialization
-     * @callback SpeechRecognition~initCallback
-     * @param {String} sessionId - Session identifier
-     * @param {Number} code - Http status of initialization response
+     * Функция, которая будет вызвана после успешной инициализации сессии распознавания речи.
+     * @callback
+     * @name initCallback
+     * @memberOf SpeechRecognition
+     * @param {String} sessionId Идентификатор сессии.
+     * @param {Number} code HTTP-статус, который будет содержаться в ответе сервера (200 в случае успеха).
      */
 
     /**
-     * Callback for recognition error message
-     * @callback SpeechRecognition~errorCallback
-     * @param {String} message - Error message
+     * Функция, в которую будут переданы сообщения об ошибках.
+     * @callback
+     * @name errorCallback
+     * @memberOf SpeechRecognition
+     * @param {String} message Текст сообщения об ошибке.
      */
 
     /**
-     * Callback for recognition error message
-     * @callback SpeechRecognition~dataCallback
-     * @param {String} text - Recognized text
-     * @param {Boolean} utterance - Is this a final text result for this utterance
-     * @param {Number} merge - How many requests were merged in this response
+     * Функция для результатов распознавания речи.
+     * @callback
+     * @name dataCallback
+     * @memberOf SpeechRecognition
+     * @param {String} text Распознанный текст.
+     * @param {Boolean} utterance Является ли данный текст финальным результатом распознавания.
+     * @param {Number} merge Число обработанных запросов, по которым выдан ответ от сервера.
      */
 
     /**
-     * Callback for technical information messages
-     * @callback SpeechRecognition~infoCallback
-     * @param {Number} send_bytes - How many bytes of audio data were send during session
-     * @param {Number} send_packages - How many packages with audio data were send during session
-     * @param {Number} processed - How many audio packages were processed by server
-     * @param {ya.speechkit.FORMAT} format - Which format is used for audio
+     * В эту функцию будет передаваться техническая информация.
+     * @callback
+     * @name infoCallback
+     * @memberOf SpeechRecognition.
+     * @param {Number} send_bytes Сколько байт аудио-данных было передано на сервер.
+     * @param {Number} send_packages Сколько пакетов аудио-данных было передано на сервер.
+     * @param {Number} processed Количество пакетов, на которые ответил сервер.
+     * @param {ya.speechkit.FORMAT} format Какой формат аудио используется.
      */
 
     /**
-     * Callback to indicate recognition process has stopped
-     * @callback SpeechRecognition~stopCallback
+     * Функция, которая будет вызвана после остановки сессии распознавания речи.
+     * @callback
+     * @name stopCallback
+     * @memberOf SpeechRecognition
      */
 }(this));

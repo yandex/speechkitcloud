@@ -2,7 +2,7 @@
     'use strict';
 
     /**
-     * namespace for Yandex.Speechkit JS code
+     * Пространство имен для классов и методов библиотеки Yandex.Speechkit JS
      * @namespace ya.speechkit
      */
     if (typeof namespace.ya === 'undefined') {
@@ -11,6 +11,8 @@
     if (typeof namespace.ya.speechkit === 'undefined') {
         namespace.ya.speechkit = {};
     }
+
+    namespace.ya.speechkit.AudioContext = window.AudioContext || window.webkitAudioContext;
 
     if (typeof namespace.ya.speechkit.settings === 'undefined') {
         var js = document.createElement('script');
@@ -21,26 +23,24 @@
         document.head.appendChild(js);
     }
 
-    /** Flag of initialization status
-     * @private
-     * @memberof ya.speechkit
-     */
-    namespace.ya.speechkit._recorderInited = false;
-
-    /** Set of supported formats
+    /** Набор поддерживаемых форматов аудио.
      * @readonly
      * @enum
      * @memberof ya.speechkit
      */
     namespace.ya.speechkit.FORMAT = {
-        /** PCM 8KHz gives bad quality of recognition and small file size */
+        /** PCM 8KHz дает плохое качество распознавания, но малый объем передаваемых на сервер данных */
         PCM8: {format: 'pcm', sampleRate: 8000, mime: 'audio/x-pcm;bit=16;rate=8000', bufferSize: 1024},
-        /** PCM 16 KHz gives the best quality of recognition and average file size */
+        /** PCM 16 KHz наилучшее качество распознавания при среднем объеме данных */
         PCM16: {format: 'pcm', sampleRate: 16000, mime: 'audio/x-pcm;bit=16;rate=16000', bufferSize: 2048},
-        /** PCM 44 KHz gives big file size and lags on recognition */
+        /** PCM 44 KHz большой размер передаваемых данных, возможны задержки на узком канале */
         PCM44: {format: 'pcm', sampleRate: 44100, mime: 'audio/x-pcm;bit=16;rate=44100', bufferSize: 4096},
     };
 
+    /** Media stream used by SpeechKit
+     * @private
+     * @memberof ya.speechkit
+     */
     namespace.ya.speechkit._stream = null;
 
     /**
@@ -60,7 +60,7 @@
                 if (typeof from[i] === 'object') {
                     to[i] = (toStr.call(from[i]) === astr) ? [] : {};
                     namespace.ya.speechkit._extend(to[i], from[i]);
-                } else {
+                } else if (typeof from[i] !== 'undefined' || typeof to[i] === 'undefined') {
                     to[i] = from[i];
                 }
             }
@@ -69,10 +69,9 @@
     };
 
     /**
-     * Records sound from mic
-     * @class
-     * @memberof ya.speechkit
-     * @alias Recorder
+     * Создает объект для записи аудио-сигнала с микрофона.
+     * @class Класс, управляющий записью звука с микрофона.
+     * @name Recorder
      */
     var Recorder = function ()
     {
@@ -116,22 +115,24 @@
 
     };
 
-    Recorder.prototype = {
+    Recorder.prototype = /** @lends Recorder.prototype */ {
         /**
          * Creates an input point for a given audio format (sets samplerate and buffer size
          * @param {ya.speechkit.FORMAT} format audio format (it's samplerate and bufferSize are being used)
          * @private
          */
         _createNode: function (format) {
-            this.context = namespace.ya.speechkit.audiocontext || new namespace.ya.speechkit.AudioContext();
-            namespace.ya.speechkit.audiocontext = this.context;
+            if (!namespace.ya.speechkit.audiocontext) {
+                namespace.ya.speechkit.audiocontext = new namespace.ya.speechkit.AudioContext();
+            }
 
-            this.audioInput = this.context.createMediaStreamSource(namespace.ya.speechkit._stream);
+            this.audioInput = namespace.ya.speechkit.audiocontext.createMediaStreamSource(
+                                                                            namespace.ya.speechkit._stream);
 
-            if (!this.context.createScriptProcessor) {
-                this.node = this.context.createJavaScriptNode(format.bufferSize, 2, 2);
+            if (!namespace.ya.speechkit.audiocontext.createScriptProcessor) {
+                this.node = namespace.ya.speechkit.audiocontext.createJavaScriptNode(format.bufferSize, 2, 2);
             } else {
-                this.node = this.context.createScriptProcessor(format.bufferSize, 2, 2);
+                this.node = namespace.ya.speechkit.audiocontext.createScriptProcessor(format.bufferSize, 2, 2);
             }
 
             this.audioInput.connect(this.node);
@@ -160,50 +161,60 @@
                 }
             }.bind(this);
 
-            this.node.connect(this.context.destination);
+            this.node.connect(namespace.ya.speechkit.audiocontext.destination);
         },
         /**
-         * Puts recorder into paused mode
-         * @description Recorder in this mode will call on startCallback with empty sound as a heartbeat
+         * Ставит запись звука на паузу.
+         * Во время паузы на сервер будут отправляться периодически запросы с пустым звуком, чтобы сервер не обрывал сессию.
          */
         pause: function () {
             this.paused = true;
             this.lastDataOnPause = Number(new Date());
         },
         /**
-         * Returns AudioContext which sound is being recordered
-         * @returns {AudioContext} Current AudioContext
-         * @see https://developer.mozilla.org/en-US/docs/Web/API/AudioContext
+         * @returns {AudioContext} Текущий <xref scope="external" locale="ru" href="https://developer.mozilla.org/ru/docs/Web/API/AudioContext">
+         * AudioContext</xref><xref scope="external" locale="en-com" href="https://developer.mozilla.org/en-US/docs/Web/API/AudioContext">AudioContext</xref>,
+         * с которого записывается звук.
          */
         getAudioContext: function () {
-            return this.context;
+            return namespace.ya.speechkit.audiocontext;
         },
         /**
-         * Returns AnalyserNode for realtime audio record analysis
-         * @returns {AnalyserNode}
-         * @see https://developer.mozilla.org/en-US/docs/Web/API/AnalyserNode
+         * @returns {AnalyserNode} <xref scope="external" locale="ru" href="https://developer.mozilla.org/ru/docs/Web/API/AnalyserNode">
+         * AnalyserNode</xref><xref scope="external" locale="en-com" href="https://developer.mozilla.org/en-US/docs/Web/API/AnalyserNode">
+         * AnalyserNode</xref> - объект, предназначенный для анализа аудио-сигнала в реальном времени.
          */
         getAnalyserNode: function () {
-            this.context = namespace.ya.speechkit.audiocontext || new namespace.ya.speechkit.AudioContext();
-            namespace.ya.speechkit.audiocontext = this.context;
-            var analyserNode = this.context.createAnalyser();
+            if (!namespace.ya.speechkit.audiocontext) {
+                namespace.ya.speechkit.audiocontext = new namespace.ya.speechkit.AudioContext();
+            }
+            var analyserNode = namespace.ya.speechkit.audiocontext.createAnalyser();
             analyserNode.fftSize = 2048;
-            this.inputPoint.connect(analyserNode);
+            this.audioInput.connect(analyserNode);
             return analyserNode;
         },
         /**
-         * Returns true if recorder is in paused mode
-         * @returns {Boolean} True if recorder is paused (not stopped!)
+         * @returns {Boolean} true, если запись звука стоит на паузе, false - в противном случае.
          */
         isPaused: function () {
             return this.paused;
         },
         /**
-         * Starts recording
-         * @param {Recorder~streamCallback} cb Callback for 16-bit audio stream
-         * @param {ya.speechkit.FORMAT} format Format for audio recording
+         * Начинает запись звука с микрофона.
+         * @param {callback:streamCallback} cb Функция-обработчик, в которую будет передаваться записанный аудио-поток.
+         * @param {ya.speechkit.FORMAT} [format=PCM16] Формат для записи аудио-сигнала. Доступные значения:
+         * <ul>
+         *     <li> PCM8 - плохое качество распознавания, но малый объем передаваемых на сервер данных;</li>
+         *     <li> PCM16 - наилучшее качество распознавания при среднем объеме данных; </li>
+         *     <li> PCM44 - большой размер передаваемых данных, возможны задержки на узком канале.</li>
+         *</ul>
          */
         start: function (cb, format) {
+            var backref = this;
+            if (!namespace.ya.speechkit._stream) {
+                return namespace.ya.speechkit.initRecorder(function () {backref.start(cb, format);}, console.log);
+            }
+
             if (!this.node) {
                 this._createNode(format);
             }
@@ -212,12 +223,15 @@
                 this.paused = false;
                 return;
             }
-
-            this.startCallback = cb;
+            if (typeof cb !== 'undefined') {
+                this.startCallback = cb;
+            } else {
+                this.startCallback = null;
+            }
             this.worker.postMessage({
                 command: 'init',
                 config: {
-                    sampleRate: this.context.sampleRate,
+                    sampleRate: namespace.ya.speechkit.audiocontext.sampleRate,
                     format: format || namespace.ya.speechkit.FORMAT.PCM16,
                     channels: this.channelCount,
                 }
@@ -232,46 +246,77 @@
             this.clear(function () {this.recording = true;}.bind(this));
         },
         /**
-         * Stops recording
-         * @param {Recorder~wavCallback} cb Callback for finallized record in a form of wav file
-         * @param {Number} channelCount Channel count in audio file (1 or 2)
+         * Останавливает запись звука.
+         * @param {callback:wavCallback} cb Функция-обработчик, в которую будет передан BLOB с записанным аудио в формате wav.
+         * @param {Number} [channelCount=2] Сколько каналов должно быть в wav-файле: 1 - mono, 2 - stereo.
          */
         stop: function (cb, channelCount) {
             this.recording = false;
+            if (this.node) {
+                this.node.disconnect();
+            }
 
-            this.exportWAV(function (blob) {
-                cb(blob);
-            }, channelCount || 2);
+            this.node = null;
+
+            if (namespace.ya.speechkit._stream &&
+                typeof namespace.ya.speechkit._stream.stop !== 'undefined') {
+                namespace.ya.speechkit._stream.stop();
+            }
+            namespace.ya.speechkit._stream = null;
+            if (typeof namespace.ya.speechkit.audiocontext !== 'undefined' &&
+                namespace.ya.speechkit.audiocontext !== null &&
+                typeof namespace.ya.speechkit.audiocontext.close !== 'undefined') {
+                namespace.ya.speechkit.audiocontext.close();
+                namespace.ya.speechkit.audiocontext = null;
+            }
+
+            if (typeof cb !== 'undefined') {
+                this.exportWAV(function (blob) {
+                    cb(blob);
+                }, channelCount || 2);
+            }
         },
         /**
-         * Returns true if recording is going on (or is on pause)
-         * @returns {Boolean} true if recorder is recording sound or sending heartbeat on pause
+         * @returns {Boolean} true, если идет запись звука, false - если запись стоит в режиме паузы.
          */
         isRecording: function () {
             return this.recording;
         },
         /**
-         * Clears recorder sound buffer
-         * @param {Recorder~clearCallback} cb Callback for indication of clearing process finish
+         * Очищает буферы с записанным аудио-сигналом.
+         * @param {callback:clearCallback} cb Функция-обработчик, которая будет вызвана, когда произойдет очистка.
          */
         clear: function (cb) {
-            this.currCallback = cb;
+            if (typeof cb !== 'undefined') {
+                this.currCallback = cb;
+            } else {
+                this.currCallback = null;
+            }
             this.worker.postMessage({command: 'clear'});
         },
         /**
-         * Returns recordered sound buffers
-         * @param {Recorder~buffersCallback} cb Callback for recordered buffers
+         * Метод для получения буферов с записанным аудио-сигналом.
+         * @param {callback:buffersCallback} cb Функция, в которую будут переданы буферы с аудио-сигналом.
          */
         getBuffers: function (cb) {
-            this.buffCallback = cb;
+            if (typeof cb !== 'undefined') {
+                this.buffCallback = cb;
+            } else {
+                this.buffCallback = null;
+            }
             this.worker.postMessage({command: 'getBuffers'});
         },
         /**
-         * Exports recordered sound buffers in a wav-file
-         * @param {Recorder~wavCallback} cb Callback for wav-file
+         * Экспортирует записанный звук в wav-файл.
+         * @param {callback:wavCallback} cb Функция, в которую будет передан BLOB с файлом.
+         * @param {Number} [channelCount=1] Количество каналов в wav-файле: 1 - mono, 2 - stereo.
          */
         exportWAV: function (cb, channelCount) {
-            this.currCallback = cb;
+            if (typeof cb !== 'undefined') {
+                this.currCallback = cb;
+            } else {
+                this.currCallback = null;
+            }
             var type = 'audio/wav';
 
             if (!this.currCallback) {throw new Error('Callback not set');}
@@ -287,41 +332,50 @@
 
     namespace.ya.speechkit.Recorder = Recorder;
 
+    namespace.ya.speechkit.getUserMedia = navigator.getUserMedia ||
+        navigator.mozGetUserMedia ||
+        navigator.msGetUserMedia ||
+        navigator.webkitGetUserMedia;
+
+    namespace.ya.speechkit.mediaDevices = navigator.mediaDevices ||
+        (namespace.ya.speechkit.getUserMedia ? {
+            getUserMedia: function (c) {
+                return new Promise(function (y, n) {
+                    namespace.ya.speechkit.getUserMedia.call(navigator, c, y, n);
+                });
+            }
+        } : null);
+
+    namespace.ya.speechkit._stream = null;
+    namespace.ya.speechkit.audiocontext = null;
+
     /**
-     * Ask user to share his mic and initialize Recorder class
-     * @param {ya.speechkit.initSuccessCallback} initSuccess Callback to call for successful initialization
-     * @param {ya.speechkit.initFailCallback} initFail Callback to call on error
-     * @memberof ya.speechkit
+     * Запрашивает у пользователя права для записи звука с микрофона.
+     * @param {callback:initSuccessCallback} initSuccess Функция-обработчик, которая будет вызвана при успешном подключении к микрофону.
+     * @param {callback:initFailCallback} initFail Функция-обработчик, в которую будет передано сообщения об ошибке, в случае неуспеха.
      */
     namespace.ya.speechkit.initRecorder = function (initSuccess, initFail)
     {
-        namespace.ya.speechkit.AudioContext = window.AudioContext || window.webkitAudioContext;
-
-        navigator.getUserMedia = (navigator.getUserMedia ||
-        navigator.mozGetUserMedia ||
-        navigator.msGetUserMedia ||
-        navigator.webkitGetUserMedia);
-
-        namespace.ya.speechkit._stream = null;
-
         var badInitialization = function (err) {
-            namespace.ya.speechkit._recorderInited = false;
-            initFail(err);
+            namespace.ya.speechkit._stream = null;
+            if (typeof initFail !== 'undefined') {
+                initFail(err);
+            }
         };
 
-        if (navigator.getUserMedia)
+        if (namespace.ya.speechkit.mediaDevices)
         {
-            navigator.getUserMedia(
-                {audio: true},
+            namespace.ya.speechkit.mediaDevices.getUserMedia(
+                {audio: true}).then(
                 function (stream) {
                     namespace.ya.speechkit._stream = stream;
-                    namespace.ya.speechkit._recorderInited = true;
-                    initSuccess();
-                },
+                    if (typeof initSuccess !== 'undefined') {
+                        initSuccess();
+                    }
+                }).catch(
                 function (err) {
-                    badInitialization('Couldn\'t initialize Yandex Webspeechkit: ' + err);
-                }
-            );
+                    badInitialization(err.message || err.name || err);
+                });
         } else {
             badInitialization('Your browser doesn\'t support Web Audio API. ' +
                               'Please, use Yandex.Browser: https://browser.yandex.ru');
@@ -329,39 +383,87 @@
     };
 
     /**
-     * Callback for successful initialization
-     * @callback initSuccessCallback
-     * @memberof ya.speechkit
+     * Поддерживается ли рапознавание заданного языка.
+     * @return true, если язык поддерживается, false - иначе.
+     */
+    namespace.ya.speechkit.isLanguageSupported = function (lang)
+    {
+        if (namespace.ya.speechkit.settings.lang_whitelist.indexOf(lang) >= 0) {
+            return namespace.ya.speechkit.isSupported();
+        } else {
+            return namespace.ya.speechkit.isWebAudioSupported();
+        }
+    };
+
+    /**
+     * Поддерживаются ли технологии рапознавания Яндекса.
+     * @return true, если поддерживаются, false - иначе.
+     */
+    namespace.ya.speechkit.isSupported = function ()
+    {
+        var userAgent = navigator.userAgent.toLowerCase();
+        // Yandex recognition is 100% supported on mobile devices only in firefox
+        return ((namespace.ya.speechkit.mediaDevices !== null) &&
+                ((/mozilla|firefox/.test(userAgent) && !/yabrowser/.test(userAgent)) ||
+                !/iphone|ipod|ipad|android|blackberry/.test(userAgent)));
+    };
+
+    /**
+     * Поддерживается ли рапознавание с помощью WebAudio API.
+     * @return true, если поддерживается, false - иначе.
+     */
+    namespace.ya.speechkit.isWebAudioSupported = function ()
+    {
+        var userAgent = navigator.userAgent.toLowerCase();
+        // Native recognition is only supported in original chrome and chromium
+        return (typeof namespace.webkitSpeechRecognition !== 'undefined' &&
+            /chrome/.test(userAgent) && !/firefox|yabrowser|opera|opr/.test(userAgent));
+    };
+
+
+    /**
+     * Функция, которая будет вызвана по факту успешного получения прав на доступ к микрофону.
+     * @callback
+     * @name initSuccessCallback
+     * @memberof Recorder
      */
 
     /**
-     * Callback for unsuccessful initialization
+     * Функция-обработчик, которая будет вызвана при возникновении ошибки при получении доступа к микрофону.
      * @callback initFailCallback
-     * @param {String} error Error message
-     * @memberof ya.speechkit
+     * @param {String} error Сообщение об ошибке.
+     * @memberof Recorder
      */
 
     /**
-     * Callback for wav file export
-     * @callback Recorder~wavCallback
-     * @param {Blob} data - WAV file
+     * Функция для BLOB с wav-файлом.
+     * @callback
+     * @name wavCallback
+     * @param {Blob} data waf-файл.
+     * @memberof Recorder
      */
 
     /**
-     * Callback for recordered audio buffers
-     * @callback Recorder~buffersCallback
-     * @param {Float32Array[]} buffers - recordered buffers for both channels (2 elements)
+     * Функция-обработчик, в которую будут переданы буферы записанного аудио.
+     * @callback
+     * @name buffersCallback
+     * @param {Float32Array[]} buffers Буферы записанного аудио для двух каналов (моно и стерео).
+     * @memberof Recorder
      */
 
     /**
-     * Callback to indicate Recorder's readiness to record more audio
-     * @callback Recorder~clearCallback
+     * Функция, которая будет вызвана после очистки буферов (это сигнал готовности к повторному запуску).
+     * @callback
+     * @name clearCallback
+     * @memberof Recorder
      */
 
     /**
-     * Callback for realtime pcm streaming
-     * @callback Recorder~streamCallback
-     * @param {ArrayBuffer} stream - 16bit pcm stream
+     * Функция-обработчик, в которую будет передаваться записанный аудио-поток.
+     * @callback
+     * @name streamCallback
+     * @param {ArrayBuffer} stream Записанный PCM поток 16-bit.
+     * @memberof Recorder
      */
 
 }(this));
