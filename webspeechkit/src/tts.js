@@ -43,9 +43,7 @@
      *     <li>'мужские голоса: 'zahar' и 'ermil'.</li>
      * </ul>
      * @param {Array} [options.speakers] Массив голосов вида [['voice1', weight1], ['voice2', weight2]], предназначенный для взвешенного смешивания голосов
-     * @param {String} [options.gender] Пол говорящего, Доступный значения: 'male', 'female'
      * @param {Array} [options.genders] Массив полов вида [['gender1', weight1], ['gender2', weight2]], предназначенный для взвешенного смешивания полов говорящего
-     * @param {Number} [options.speed=1.0] Скорость воспроизведения. Можно установить в диапазоне от 0.3 до 3.
      * @param {Boolean} [options.fast=false] Использовать "быстрый" синтез, который ускоряет генерацию звука путём уменьшения его качества
      * @param {String} [options.lang='ru-RU'] Язык текста, который надо произнести. Доступные значения: 'ru-RU', 'en-EN', 'tr-TR', 'uk-UA'
      * @param {Float} [options.speed=1.0] Скорость синтеза речи, принимает значения от 0.0 (медленно) до 2.0 (быстро)
@@ -105,13 +103,13 @@
          * @param {Function} [cb] Функция-обработчик, которая будет вызвана по завершении воспроизведения.
          * @param {TtsOptions} [options] Опции.
          */
-        say: function (text, cb, options) {            
+        say: function (text, cb, options) {
             this.speak(
+                text,
                 namespace.ya.speechkit._extend(
                 this.options,
                     namespace.ya.speechkit._extend(
                         {
-                            text: text,
                             dataCallback: function (blob) {
                                 var url = URL.createObjectURL(blob);
                                 namespace.ya.speechkit.play(url, cb);
@@ -125,10 +123,10 @@
          * Озвучивание текста.
          * @param {TtsOptions} [options] Опции.
          */
-        speak: function (options) {
+        speak: function (text, options) {
             var opts = namespace.ya.speechkit._extend(
                             namespace.ya.speechkit._extend(
-                            {},
+                            {text: text},
                             this.options),
                         options);
             try {

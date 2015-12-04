@@ -50,6 +50,10 @@
     ' </svg>';
 
     namespace.ya.speechkit.Textline = function (target, options) {
+        if (!(this instanceof namespace.ya.speechkit.Textline)) {
+            return new namespace.ya.speechkit.Textline(target, options);
+        }
+
         var el = document.getElementById(target);
         if (el.tagName != 'INPUT') {
             this.element = el;

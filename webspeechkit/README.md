@@ -42,9 +42,6 @@ window.onload = function() {
             emotion: 'good',
             gender: 'female'
         });
-    tts.speak(
-        {
-            text: '1 2 3'
-        });
+    tts.speak('1 2 3');
 };
 ```
