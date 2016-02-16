@@ -307,6 +307,7 @@ def recognize(chunks,
     state.logger.info('Recognition was started.')
     chunks_count = 0
 
+    state.thread.setDaemon(True)
     state.thread.start()
 
     sent_length = 0
