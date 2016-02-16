@@ -198,18 +198,21 @@ class ServerConnection(object):
             self.log("got response: endOfUtt={0}; len(recognition)={1}".format(response.endOfUtt, len(response.recognition)))
 
             if len(response.recognition) == 0:
-                return "", response.messagesCount
+                return "", 0.0, 0.0, response.messagesCount
 
             text =  response.recognition[0].normalized.encode('utf-8')
             merged = response.messagesCount
             self.log("partial result: {0}; merged={1}".format(text, merged))
 
             if response.endOfUtt:
-                return text, merged
+                start_time = response.recognition[0].align_info.start_time
+                end_time = response.recognition[0].align_info.end_time
+                self.log("start time: {0}; end_time={1}".format(start_time, end_time))
+                return text, start_time, end_time, merged
             else:
-                return "", response.messagesCount
-        
-        return None, 0
+                return "", 0.0, 0.0, response.messagesCount
+
+        return None, 0.0, 0.0, 0
 
 
 def recognize(chunks,
@@ -253,7 +256,7 @@ def recognize(chunks,
                         print e
                     return
 
-        def gotresult(self, utterance, messagesCount):
+        def gotresult(self, utterance, start_time, end_time, messagesCount):
             self.chunks_answered += messagesCount
             self.pending_answers -= messagesCount
 
@@ -263,7 +266,7 @@ def recognize(chunks,
                 if utterance != "":
                     self.logger.info('Chunks from {0} to {1}:'.format(self.utterance_start_index, self.utterance_start_index + self.chunks_answered))
                     if callback is not None:
-                        callback(utterance)
+                        callback(utterance, start_time, end_time)
                     del self.unrecognized_chunks[:self.chunks_answered]
                     self.utterance_start_index += self.chunks_answered
                     self.chunks_answered = 0
@@ -276,7 +279,7 @@ def recognize(chunks,
             try:
                 self.server.add_data(chunk)
                 self.pending_answers += 1
-                    
+
             except (DecodeProtobufError, ServerError, TransportError, SocketError) as e:
                 global retry_count
                 self.logger.info('Connection lost! ({0})'.format(type(e)))
@@ -295,36 +298,41 @@ def recognize(chunks,
                         self.send(chunk)
                 else:
                     raise RuntimeError("Gave up!")
-                    
-    
+
+
     start_at = time.time()
 
     state = PendingRecognition()
-    
+
     state.logger.info('Recognition was started.')
     chunks_count = 0
+
     state.thread.start()
-    
+
     sent_length = 0
     for index, chunk in enumerate(chunks):
         while realtime and (sent_length / bytes_in_sec(format) > time.time() - start_at):
             time.sleep(0.01)
+
+        while state.pending_answers > pending_limit:
+            time.sleep(0.01)
+
         state.logger.info('About to send chunk {0} ({1} bytes)'.format(index, len(chunk)))
-        state.unrecognized_chunks.append(chunk)        
+        state.unrecognized_chunks.append(chunk)
         state.send(chunk)
         chunks_count = index + 1
         sent_length += len(chunk)
-    
+
     state.logger.info('No more chunks. Finalizing recognition.')
     state.unrecognized_chunks.append(None)
     state.send(None)
-    
+
     state.thread.join()
 
     state.logger.info('Recognition is done.')
 
     fin_at = time.time()
-    seconds_elapsed = fin_at - start_at 
+    seconds_elapsed = fin_at - start_at
 
     state.logger.info("Start at {0}, finish at {1}, took {2} seconds".format(time.strftime("[%d.%m.%Y %H:%M:%S]", time.localtime(start_at)),
                                                                           time.strftime("[%d.%m.%Y %H:%M:%S]", time.localtime(fin_at)),

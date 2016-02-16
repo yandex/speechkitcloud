@@ -96,11 +96,16 @@ def main(chunk_size, start_with_chunk, max_chunks_count, record, files, silent, 
                 click.echo('Please install pyaudio module for system audio recording.')
                 sys.exit(-2)
 
+    def default_callback(utterance, start_time = 0.0, end_time = 0.0):
+        click.echo(utterance)
+        if (end_time > start_time):
+            click.echo("from {0} to {1}".format(start_time, end_time))
+
     if not chunks:
         click.echo('Please, specify one or more input filename.')
     else:
         client.recognize(chunks,
-                         callback=click.echo,
+                         callback=default_callback,
                          **kwars)
 
 if __name__ == "__main__":

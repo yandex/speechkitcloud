@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='asrclient',
-    version='0.3.6',
+    version='0.3.7',
     author='Andrey Pichugin, Alexander Artemenko',
     author_email='voice@support.yandex.ru',
     description='Yandex ASR streaming client.',
