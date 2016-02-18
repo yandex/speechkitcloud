@@ -74,7 +74,7 @@ class ServerError(RuntimeError):
 
 class ServerConnection(object):
 
-    def __init__(self, host, port, key, app, service, topic, lang, format, uuid, inter_utt_silence, cmn_latency, logger=None, punctuation=True, ipv4=False):
+    def __init__(self, host, port, key, app, service, topic, lang, format, uuid, inter_utt_silence, cmn_latency, logger=None, punctuation=True, ipv4=False, advanced_callback=None):
         self.host = host
         self.port = port
         self.key = key
@@ -89,6 +89,7 @@ class ServerConnection(object):
         self.inter_utt_silence = inter_utt_silence
         self.cmn_latency = cmn_latency
         self.ipv4 = ipv4
+        self.advanced_callback = advanced_callback
 
         self.log("uuid={0}".format(self.uuid))
 
@@ -197,6 +198,9 @@ class ServerConnection(object):
 
             self.log("got response: endOfUtt={0}; len(recognition)={1}".format(response.endOfUtt, len(response.recognition)))
 
+            if self.advanced_callback is not None:
+                self.advanced_callback(response)
+
             if len(response.recognition) == 0:
                 return "", 0.0, 0.0, response.messagesCount
 
@@ -217,6 +221,8 @@ class ServerConnection(object):
 
 def recognize(chunks,
               callback=None,
+              advanced_callback=None,
+              callback_module=None,
               format=DEFAULT_FORMAT_VALUE,
               server=DEFAULT_SERVER_VALUE,
               port=DEFAULT_PORT_VALUE,
@@ -235,10 +241,14 @@ def recognize(chunks,
               nopunctuation=False,
               realtime=False):
 
+    if callback_module is not None:
+        imported_module = __import__(callback_module, globals(), locals(), [], -1)
+        advanced_callback = imported_module.advanced_callback
+
     class PendingRecognition(object):
         def __init__(self):
             self.logger = logging.getLogger('asrclient')
-            self.server = ServerConnection(server, port, key, app, service, model, lang, format, uuid, inter_utt_silence, cmn_latency, self.logger, not nopunctuation, ipv4)
+            self.server = ServerConnection(server, port, key, app, service, model, lang, format, uuid, inter_utt_silence, cmn_latency, self.logger, not nopunctuation, ipv4, advanced_callback)
             self.unrecognized_chunks = []
             self.retry_count = 0
             self.pending_answers = 0
@@ -265,7 +275,7 @@ def recognize(chunks,
                 self.logger.info('Utterance is not None')
                 if utterance != "":
                     self.logger.info('Chunks from {0} to {1}:'.format(self.utterance_start_index, self.utterance_start_index + self.chunks_answered))
-                    if callback is not None:
+                    if (callback is not None) and (advanced_callback is None):
                         callback(utterance, start_time, end_time)
                     del self.unrecognized_chunks[:self.chunks_answered]
                     self.utterance_start_index += self.chunks_answered

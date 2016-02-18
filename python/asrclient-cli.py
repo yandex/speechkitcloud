@@ -75,6 +75,9 @@ except exceptions.ImportError:
 @click.option('--realtime',
               is_flag=True,
               help='Emulate realtime record recognition.')
+@click.option('--callback-module',
+              help='Python module name which should implement advanced_callback(AddDataResponse).\nIt takes corresponding protobuf message as a parameter. See advanced_callback_example.py for details.',
+              default=None)
 @click.argument('files',
                 nargs=-1,
                 type=click.File('rb'))

@@ -1,3 +1,9 @@
+Description:
+
+This is a streaming client for Yandex speech recognition service (aka Yandex ASR).
+Comparing to http-api it provides much more info about recognized text and recognition proces itself.
+Also it has no limit for input file length.
+
 Install:
 
 You need to provide some python dependencies. Suggest something like this...
@@ -6,14 +12,16 @@ sudo apt-get install python2.7 python-setuptools python-pip git
 git clone https://github.com/yandex/speechkitcloud
 cd speechkitcloud/python
 python ./setup.py sdist
+
 cd dist
 sudo pip install <generated-file-name>
+
+...or you can provide the dependencies manually and run ./asrclient-cli.py directly (without install).
 
 
 Usage:
 
 asrclient-cli.py [OPTIONS] [FILES]...
-
 
 Options:
   -k, --key TEXT                  You could get it at
@@ -21,7 +29,6 @@ Options:
                                   is "paste-your-own-key".
   -s, --server TEXT               Default is asr.yandex.net.
   -p, --port INTEGER              Default is 80.
-  --ipv4                          Connect only over IPv4.
   --format TEXT                   Input file format. Default is
                                   audio/x-pcm;bit=16;rate=16000.
   --model TEXT                    Recognition model. freeform | freeform8alaw.
@@ -29,10 +36,9 @@ Options:
                                   phone call. It's just a model name, sound
                                   format may be different. Default is
                                   freeform.
-  --lang TEXT                     Language of speech. ru-RU | en-EN | tr-TR | uk-UA.
-                                  Default is ru-RU.
-  --uuid TEXT                     Identifier of your query. Default is random.
-  --chunk-size INTEGER            Default value 32768 bytes roughly equals to
+  --lang TEXT                     Recognition language. ru-RU | en-EN | tr-TR
+                                  | uk-UA. Default is ru-RU.
+  --chunk-size INTEGER            Default value 65536 bytes roughly equals to
                                   one second of audio in default format.
   --start-with-chunk INTEGER      Use it to send only some part of the input
                                   file. Default is 0.
@@ -40,16 +46,28 @@ Options:
                                   file. Default means no limit is set.
   --reconnect-delay FLOAT         Take a pause in case of network problems.
                                   Default value is 0.5 seconds.
+  --inter-utt-silence FLOAT       A pause between phrases finalization.
+                                  Default value is 1.2 seconds.
+  --cmn-latency INTEGER           CMN latecny parameter. Default value is 50.
   --reconnect-retry-count INTEGER
                                   Sequentional reconnects before giving up.
                                   Default is 5.
   --silent                        Don't print debug messages, only recognized
                                   text.
+  --record                        Grab audio from system audio input instead
+                                  of files.
+  --nopunctuation                 Disable punctuation.
+  --uuid TEXT                     UUID of your request. It can be helpful for
+                                  further logs analysis. Default is random.
+  --ipv4                          Use ipv4 only connection.
+  --realtime                      Emulate realtime record recognition.
+  --callback-module TEXT          Python module name which should implement
+                                  advanced_callback(AddDataResponse).
+                                  It takes
+                                  corresponding protobuf message as a
+                                  parameter. See advanced_callback_example.py
+                                  for details.
   --help                          Show this message and exit.
-
-There is also optional support for pyaudio+portaudio. If you manage to install it see:
-
-  --record                        Grab audio from system audio input instead of files.
 
 
 Examples:
@@ -58,6 +76,9 @@ asrclient-cli.py --help
 
 asrclient-cli.py --key=active-key-from-your-account sound.wav
 
+asrclient-cli.py --key=active-key-from-your-account --silent sound.wav
+
+asrclient-cli.py --key=active-key-from-your-account --silent --callback-module advanced_callback_example sound.wav
 
 More:
 
@@ -72,3 +93,4 @@ Useful links:
 http://sox.sourceforge.net/ - sound conversion library and utility.
 https://pypi.python.org/pypi/pip - python package manager.
 https://developer.tech.yandex.ru - obtain your key.
+https://tech.yandex.ru/speechkit/cloud/ - more about Yandex ASR.
