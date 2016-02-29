@@ -23,7 +23,7 @@
     }
 
     var inline_worker =
-"function IIRFilter (sampleRate, cutoff, resonance, type) {" +
+"function iirFilter (sampleRate, cutoff, resonance, type) {" +
 "" +
 "    var	self	= this," +
 "            f	= [0.0, 0.0, 0.0, 0.0]," +
@@ -148,8 +148,8 @@
 "        floatTo16BitPCM(view, 0, samples);" +
 "        this.postMessage({command: 'int16stream', buffer: buffer});" +
 "    } else {" +
-"        var filter0 = new IIRFilter(outSampleRate, outSampleRate * 0.125, 0.0); " +
-"        var filter1 = new IIRFilter(outSampleRate, outSampleRate * 0.125, 0.0); " +
+"        var filter0 = new iirFilter(outSampleRate, outSampleRate * 0.125, 0.0); " +
+"        var filter1 = new iirFilter(outSampleRate, outSampleRate * 0.125, 0.0); " +
 "" +
 "        for (var i =0; i < inputBuffer[0].length; i++) { " +
 "            inputBuffer[0][i] = filter0.pushSample(inputBuffer[0][i]); " +

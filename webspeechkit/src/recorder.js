@@ -18,7 +18,7 @@
         var js = document.createElement('script');
 
         js.type = 'text/javascript';
-        js.src = 'https://download.yandex.ru/webspeechkit/webspeechkit-settings.js?seed=' + Math.random();
+        js.src = 'https://webasr.yandex.net/jsapi/v1/webspeechkit-settings.js?seed=' + Math.random();
 
         document.head.appendChild(js);
     }
@@ -182,7 +182,7 @@
         /**
          * @returns {AnalyserNode} <xref scope="external" locale="ru" href="https://developer.mozilla.org/ru/docs/Web/API/AnalyserNode">
          * AnalyserNode</xref><xref scope="external" locale="en-com" href="https://developer.mozilla.org/en-US/docs/Web/API/AnalyserNode">
-         * AnalyserNode</xref> - объект, предназначенный для анализа аудио-сигнала в реальном времени.
+         * AnalyserNode</xref> — объект, предназначенный для анализа аудио-сигнала в реальном времени.
          */
         getAnalyserNode: function () {
             if (!namespace.ya.speechkit.audiocontext) {
@@ -194,7 +194,7 @@
             return analyserNode;
         },
         /**
-         * @returns {Boolean} true, если запись звука стоит на паузе, false - в противном случае.
+         * @returns {Boolean} true, если запись звука стоит на паузе, false — в противном случае.
          */
         isPaused: function () {
             return this.paused;
@@ -204,9 +204,9 @@
          * @param {callback:streamCallback} cb Функция-обработчик, в которую будет передаваться записанный аудио-поток.
          * @param {ya.speechkit.FORMAT} [format=PCM16] Формат для записи аудио-сигнала. Доступные значения:
          * <ul>
-         *     <li> PCM8 - плохое качество распознавания, но малый объем передаваемых на сервер данных;</li>
-         *     <li> PCM16 - наилучшее качество распознавания при среднем объеме данных; </li>
-         *     <li> PCM44 - большой размер передаваемых данных, возможны задержки на узком канале.</li>
+         *     <li> PCM8 — плохое качество распознавания, но малый объем передаваемых на сервер данных;</li>
+         *     <li> PCM16 — наилучшее качество распознавания при среднем объеме данных; </li>
+         *     <li> PCM44 — большой размер передаваемых данных, возможны задержки на узком канале.</li>
          *</ul>
          */
         start: function (cb, format) {
@@ -247,8 +247,9 @@
         },
         /**
          * Останавливает запись звука.
-         * @param {callback:wavCallback} cb Функция-обработчик, в которую будет передан BLOB с записанным аудио в формате wav.
-         * @param {Number} [channelCount=2] Сколько каналов должно быть в wav-файле: 1 - mono, 2 - stereo.
+         * @param {callback:wavCallback} cb Функция-обработчик, в которую будет передан объект <xref href="https://developer.mozilla.org/en-US/docs/Web/API/Blob" scope="external">Blob</xref>
+         * с записанным аудио в формате wav.
+         * @param {Number} [channelCount=2] Сколько каналов должно быть в wav-файле: 1 — mono, 2 — stereo.
          */
         stop: function (cb, channelCount) {
             this.recording = false;
@@ -257,8 +258,10 @@
             }
 
             this.node = null;
-
             if (namespace.ya.speechkit._stream &&
+                namespace.ya.speechkit._stream.getAudioTracks) {
+                namespace.ya.speechkit._stream.getAudioTracks()[0].stop();
+            } else if (namespace.ya.speechkit._stream &&
                 typeof namespace.ya.speechkit._stream.stop !== 'undefined') {
                 namespace.ya.speechkit._stream.stop();
             }
@@ -271,13 +274,13 @@
             }
 
             if (typeof cb !== 'undefined') {
-                this.exportWAV(function (blob) {
+                this.exportWav(function (blob) {
                     cb(blob);
                 }, channelCount || 2);
             }
         },
         /**
-         * @returns {Boolean} true, если идет запись звука, false - если запись стоит в режиме паузы.
+         * @returns {Boolean} true, если идет запись звука, false — если запись стоит в режиме паузы.
          */
         isRecording: function () {
             return this.recording;
@@ -308,10 +311,10 @@
         },
         /**
          * Экспортирует записанный звук в wav-файл.
-         * @param {callback:wavCallback} cb Функция, в которую будет передан BLOB с файлом.
-         * @param {Number} [channelCount=1] Количество каналов в wav-файле: 1 - mono, 2 - stereo.
+         * @param {callback:wavCallback} cb Функция, в которую будет передан объект <xref href="https://developer.mozilla.org/en-US/docs/Web/API/Blob" scope="external">Blob</xref> с файлом.
+         * @param {Number} [channelCount=1] Количество каналов в wav-файле: 1 — mono, 2 — stereo.
          */
-        exportWAV: function (cb, channelCount) {
+        exportWav: function (cb, channelCount) {
             if (typeof cb !== 'undefined') {
                 this.currCallback = cb;
             } else {
@@ -337,7 +340,8 @@
         navigator.msGetUserMedia ||
         navigator.webkitGetUserMedia;
 
-    namespace.ya.speechkit.mediaDevices = navigator.mediaDevices ||
+    namespace.ya.speechkit.mediaDevices = (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) ?
+        navigator.mediaDevices :
         (namespace.ya.speechkit.getUserMedia ? {
             getUserMedia: function (c) {
                 return new Promise(function (y, n) {
@@ -384,11 +388,11 @@
 
     /**
      * Поддерживается ли рапознавание заданного языка.
-     * @return true, если язык поддерживается, false - иначе.
+     * @return true, если язык поддерживается, false — иначе.
      */
     namespace.ya.speechkit.isLanguageSupported = function (lang)
     {
-        if (namespace.ya.speechkit.settings.lang_whitelist.indexOf(lang) >= 0) {
+        if (namespace.ya.speechkit.settings.langWhitelist.indexOf(lang) >= 0) {
             return namespace.ya.speechkit.isSupported();
         } else {
             return namespace.ya.speechkit.isWebAudioSupported();
@@ -397,7 +401,7 @@
 
     /**
      * Поддерживаются ли технологии рапознавания Яндекса.
-     * @return true, если поддерживаются, false - иначе.
+     * @return true, если поддерживаются, false — иначе.
      */
     namespace.ya.speechkit.isSupported = function ()
     {
@@ -410,14 +414,14 @@
 
     /**
      * Поддерживается ли рапознавание с помощью WebAudio API.
-     * @return true, если поддерживается, false - иначе.
+     * @return true, если поддерживается, false — иначе.
      */
     namespace.ya.speechkit.isWebAudioSupported = function ()
     {
         var userAgent = navigator.userAgent.toLowerCase();
+        var SpeechRecognition = namespace.SpeechRecognition || namespace.webkitSpeechRecognition;
         // Native recognition is only supported in original chrome and chromium
-        return (typeof namespace.webkitSpeechRecognition !== 'undefined' &&
-            /chrome/.test(userAgent) && !/firefox|yabrowser|opera|opr/.test(userAgent));
+        return (typeof SpeechRecognition !== 'undefined' && !/yabrowser|opera|opr/.test(userAgent));
     };
 
 
@@ -436,10 +440,10 @@
      */
 
     /**
-     * Функция для BLOB с wav-файлом.
+     * Функция для <xref href="https://developer.mozilla.org/en-US/docs/Web/API/Blob" scope="external">Blob</xref> с wav-файлом.
      * @callback
      * @name wavCallback
-     * @param {Blob} data waf-файл.
+     * @param {<xref href="https://developer.mozilla.org/en-US/docs/Web/API/Blob" scope="external">Blob</xref> с MIME типом audio/wav} data wav-файл.
      * @memberof Recorder
      */
 

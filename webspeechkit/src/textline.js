@@ -49,6 +49,35 @@
     ' </g>' +
     ' </svg>';
 
+    /**
+     * @name Textline
+     * @class Класс для добавления элемента управления "Поле для голосового ввода".
+     * @param {String} target Идентификатор div-контейрена, в котором будет размещен элемент управления.
+     * @param {Object} [options] Опции распознавания.
+     * @param {Object} [options.onInputFinished] Функция, которая будет вызвана после завершения распознавания. В качесве ее
+     * аргументов передается финальный распознанный текст.
+     * @param {String} [options.apikey] API-ключ. Если не задан, то используется ключ, указанный
+     * в глобальных настройках {@link settings}.
+     * @param {Boolean} [options.allowStrongLanguage=false] Следует ли отключить фильтрацию обсценной лексики.
+     * @param {String} [options.model='notes'] Языковая модель для распознавания речи. Список доступных значений:
+     * <ul>
+     *     <li>'notes' (по умолчанию) — текст;</li>
+     *     <li>'queries' — короткие запросы;</li>
+     *     <li>'names' — имена; </li>
+     *     <li>'dates' — даты; </li>
+     *     <li>'maps' - топонимы;</li>
+     *     <li>'notes' - тексты;</li>
+     *     <li>'numbers' — числа.</li>
+     * </ul>
+     * <p>Если параметр не указан, то используется
+     * значение, заданное в глобальных настройках {@link settings}. Если в настройках значение не задано, то
+     * используется модель по умолчанию - 'notes'. </p>
+     * @param {String} [options.lang='ru-RU'] Язык, речь на котором следует распознавать. Возможные значения: 'ru-RU', 'en-US', 'tr-TR', 'uk-UA'.
+     * <p>Если параметр не указан, то используется
+     * значение, заданное в глобальных настройках {@link settings}. Если в настройках значение не задано, то по умолчанию
+     * выбирается русский язык: 'ru-RU'. </p>
+     * @param {ya.speechkit.FORMAT} [options.format=ya.speechkit.FORMAT.PCM16] Формат передачи аудио-сигнала.
+     */
     namespace.ya.speechkit.Textline = function (target, options) {
         if (!(this instanceof namespace.ya.speechkit.Textline)) {
             return new namespace.ya.speechkit.Textline(target, options);
@@ -129,6 +158,11 @@
         };
 
         return {
+            /**
+             * Удаляет элемент управления.
+             * @name Textline.destroy
+             * @function
+             */
             destroy: function () {
                 if (_this.dict) {
                     _this.dict.stop();
@@ -141,6 +175,19 @@
                     _this.element.removeChild(_this.textinput);
                 }
             },
+            /**
+             * Получает финальный результат распознавания в синхронном режиме.
+             * @name Textline.value
+             * @function
+             * @returns {string} Результат распознавания.
+             *
+             * @example
+             * var textline = new ya.speechkit.Textline('myDiv');
+             *
+             * setTimeout(function () {
+             *     console.log("Результат распознавания: " + textline.value());
+             * }, 5000);
+             */
             value: function () {
                 return _this.final_result;
             }

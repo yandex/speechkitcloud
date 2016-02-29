@@ -14,7 +14,8 @@
      * Воспроизводит аудиофайл.
      * @function
      * @static
-     * @param {String | BLOB} url URL, по которому доступен либо аудио-файл, либо звук в формате BLOB.
+     * @param {String | <xref href="https://developer.mozilla.org/en-US/docs/Web/API/Blob" scope="external">Blob</xref>} url URL, по которому доступен либо аудио-файл,
+     * либо объект <xref href="https://developer.mozilla.org/en-US/docs/Web/API/Blob" scope="external">Blob</xref> со звуком в поддерживаемом браузером формате.
      * @param {Function} [cb] Функция-обработчик, которая будет вызвана после завершения воспроизведения.
      * @name play
      */
@@ -29,12 +30,12 @@
      * @class Класс, предназначенный для использования технологии синтеза речи (озвучивания текста).
      * @name Tts
      * @param {TtsOptions} [options] Опции.
-     * @param {String} [options.apiKey] API-ключ (если в настройках ключ не был указан, то в конструкторе его необходимо указать).
+     * @param {String} [options.apikey] API-ключ (если в настройках ключ не был указан, то в конструкторе его необходимо указать).
      * @param {String} [options.emotion='neutral'] Эмоциональная окраска голоса. Доступные значения:
      * <ul>
-     *     <li>'neutral' - нейтральный (по умолчанию);</li>
-     *     <li>'good' - доброжелательный;</li>
-     *     <li>'evil' - злой.</li>
+     *     <li>'neutral' — нейтральный (по умолчанию);</li>
+     *     <li>'good' — доброжелательный;</li>
+     *     <li>'evil' — злой.</li>
      * </ul>
      * @param {Array} [options.emotions] Массив эмоций вида [['emotion1', weight1], ['emotion2', weight2]], предназначенный для взвешенного смешивания эмоций
      * @param {String} [options.speaker='omazh'] Голос для озвучивания. Список доступных значений можно получить вызвав функцию Tts.speakers:
@@ -42,11 +43,13 @@
      *     <li>женские голоса: 'omazh' (по умолчанию) и 'jane';</li>
      *     <li>'мужские голоса: 'zahar' и 'ermil'.</li>
      * </ul>
-     * @param {Array} [options.speakers] Массив голосов вида [['voice1', weight1], ['voice2', weight2]], предназначенный для взвешенного смешивания голосов
-     * @param {Array} [options.genders] Массив полов вида [['gender1', weight1], ['gender2', weight2]], предназначенный для взвешенного смешивания полов говорящего
-     * @param {Boolean} [options.fast=false] Использовать "быстрый" синтез, который ускоряет генерацию звука путём уменьшения его качества
-     * @param {String} [options.lang='ru-RU'] Язык текста, который надо произнести. Доступные значения: 'ru-RU', 'en-EN', 'tr-TR', 'uk-UA'
-     * @param {Float} [options.speed=1.0] Скорость синтеза речи, принимает значения от 0.0 (медленно) до 2.0 (быстро)
+     * @param {Array} [options.speakers] Массив голосов вида [['speaker1', weight1], ['speaker2', weight2]], предназначенный для взвешенного смешивания голосов.
+     * weight может принимать значения от 1.0 до 3.0. Например, [['omazh', 1.5], ['zahar', 2.2]].
+     * @param {Array} [options.genders] Массив полов вида [['gender1', weight1], ['gender2', weight2]], предназначенный для взвешенного смешивания полов говорящего.
+     * weight может принимать значения от 1.0 до 3.0.
+     * @param {Boolean} [options.fast=false] Использовать "быстрый" синтез, который ускоряет генерацию звука путём уменьшения его качества.
+     * @param {String} [options.lang='ru-RU'] Язык текста, который надо произнести. Доступные значения: 'ru-RU', 'en-US', 'tr-TR', 'uk-UA'.
+     * @param {Float} [options.speed=1.0] Скорость синтеза речи. Принимает значения от 0.0 (медленно) до 2.0 (быстро).
      */
     var Tts = function (options) {
         if (!(this instanceof namespace.ya.speechkit.Tts)) {
@@ -61,7 +64,7 @@
          */
         this.options = namespace.ya.speechkit._extend(
                         {
-                            apiKey: namespace.ya.speechkit.settings.apiKey,
+                            apikey: namespace.ya.speechkit.settings.apikey,
                             uuid: namespace.ya.speechkit.settings.uuid,
                             url: namespace.ya.speechkit.settings.websocketProtocol +
                                 namespace.ya.speechkit.settings.ttsStreamUrl,
@@ -98,6 +101,7 @@
             this._sendRaw(JSON.stringify({type: 'message', data: json}));
         },
         /**
+         * @private
          * Озвучивание текста.
          * @param {String} text Текст.
          * @param {Function} [cb] Функция-обработчик, которая будет вызвана по завершении воспроизведения.
@@ -121,6 +125,7 @@
         },
         /**
          * Озвучивание текста.
+         * @param {TtsOptions} text Опции.
          * @param {TtsOptions} [options] Опции.
          */
         speak: function (text, options) {
@@ -163,6 +168,7 @@
                     this.sessionId = message.data.sessionId;
                 } else if (message.type == 'Error') {
                     opts.errorCallback('Session ' + this.sessionId + ': ' + message.data);
+                    this.socket.onclose = function() {};
                     this.socket.close();
                 } else if (message.type == 'Phonemes') {
                     opts.infoCallback(message.data);
@@ -170,6 +176,7 @@
                     play_queue.push(message.data);
                 } else {
                     opts.errorCallback('Session ' + this.sessionId + ': ' + message);
+                    this.socket.onclose = function() {};
                     this.socket.close();
                 }
             }.bind(this);
@@ -191,7 +198,8 @@
         },
         /**
          * Возвращает список доступных голосов и эмоций.
-         * @returns {Object} JSON-объект, содержащий набор доступных голосов и эмоций.
+         * @param {String} [lang] Язык, для которого следует вернуть список доступных языков
+         * @returns {Promise} Promise, который вернёт в resolve список доступных языков и эмоций
          */
         speakers: function (lang) {
             return new Promise(function (resolve, reject) {

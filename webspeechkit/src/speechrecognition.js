@@ -37,7 +37,6 @@
                 stopCallback: noop,
                 punctuation: false,
                 allowStrongLanguage: false,
-                advancedOptions: {},
                 model: namespace.ya.speechkit.settings.model,
                 applicationName: namespace.ya.speechkit.settings.applicationName,
                 lang: namespace.ya.speechkit.settings.lang,
@@ -70,25 +69,39 @@
     SpeechRecognition.prototype = /** @lends SpeechRecognition.prototype */ {
         /**
          * Запускает процесс распознавания речи.
-         * @param {SpeechRecognitionOptions} [options] Параметры, которые будут использоваться во время сессии.
+         * @param {Object} [options] Параметры, которые будут использоваться во время сессии.
          * @param {callback:initCallback} [options.initCallback] Функция-обработчик, которая будет вызвана по факту инициализации сессии распознавания.
          * @param {callback:errorCallback} [options.errorCallback] Функция-обработчик, которая будет вызвана по факту ошибки (все ошибки критичны и приводят к завершению сессии).
          * @param {callback:dataCallback} [options.dataCallback] Функция-обработчик, которая будет вызвана после успешного завершения
          * распознавания. В качестве аргумента ей передаются результаты распознавания.
          * @param {callback:infoCallback} [options.infoCallback] Функция для получения технической информации.
-         * @param {callback} [options.stopCallback] Функция-обработчик, которая будет вызвана в момент остановки сессии распознавания.
-         * @param {Boolean} [options.apiKey] API-ключ. Если не задан, то используется ключ, указанный
-         * в настройках ya.speechkit.settings.apiKey.
+         * @param {callback:stopCallback} [options.stopCallback] Функция-обработчик, которая будет вызвана в момент остановки сессии распознавания.
+         * @param {String} [options.apikey] API-ключ. Если не задан, то используется ключ, указанный
+         * в глобальных настройках {@link settings}.
          * @param {Boolean} [options.punctuation=false] Следует ли использовать пунктуацию.
          * @param {Boolean} [options.allowStrongLanguage=false] Следует ли отключить фильтрацию обсценной лексики.
-         * @param {String} [options.model='freeform'] Языковая модель для распознавания речи. Если параметр не указан, то используется
-         * значение, заданное в настройках ya.speechkit.model. Если в настройках значение не задано, то
-         * используется модель по умолчанию - 'freeform'.
+         * @param {String} [options.model='notes'] Языковая модель для распознавания речи. Список доступных значений:
+         * <ul>
+         *     <li>'notes' (по умолчанию) — общая лексика;</li>
+         *     <li>'queries' — короткие запросы;</li>
+         *     <li>'names' — имена; </li>
+         *     <li>'dates' — даты; </li>
+         *     <li>'maps' — топонимы;</li>
+         *     <li>'notes' — тексты;</li>
+         *     <li>'numbers' — числа.</li>
+         * </ul>
+         * <p>Если параметр не указан, то используется
+         * значение, заданное в глобальных настройках {@link settings}. Если в настройках значение не задано, то
+         * используется модель по умолчанию — 'notes'. </p>
          * @param {String} [options.applicationName] Название приложения. Для некоторых приложений мы поддерживаем специальную логику. Пример - sandbox.
-         * @param {String} [options.lang='ru-RU'] Язык, речь на котором следует распознавать. Если параметр не указан, то используется
-         * значение, заданное в настройках ya.speechkit.lang. Если в настройках значение не задано, то по умолчанию
-         * выбирается русский язык: 'ru-RU'.
+         * @param {String} [options.lang='ru-RU'] Язык, речь на котором следует распознавать. Возможные значения: 'ru-RU', 'en-US', 'tr-TR'.
+         * <p>Если параметр не указан, то используется
+         * значение, заданное в глобальных настройках {@link settings}. Если в настройках значение не задано, то по умолчанию
+         * выбирается русский язык: 'ru-RU'. </p>
          * @param {ya.speechkit.FORMAT} [options.format=ya.speechkit.FORMAT.PCM16] Формат передачи аудио-сигнала.
+         * @param {Boolean} [options.partialResults=true] Отправлять ли на сервер промежуточные результаты.
+         * @param {Number} [options.utteranceSilence=120] Длительность промежутка тишины во время записи речи (в десятках миллисекунд). Как только встречается
+         * такой перерыв в речи, запись звука останавливается, и записанный фрагмент речи отправляется на сервер.
          */
         start: function (options) {
             this.options = namespace.ya.speechkit._extend(
@@ -97,7 +110,7 @@
                                     namespace.ya.speechkit._defaultOptions()
                                 ),
                                 options);
-            if (namespace.ya.speechkit.settings.lang_whitelist.indexOf(this.options.lang) >= 0) {
+            if (namespace.ya.speechkit.settings.langWhitelist.indexOf(this.options.lang) >= 0) {
                 if (namespace.ya.speechkit._stream !== null) {
                     this._onstart();
                 } else {
@@ -170,6 +183,12 @@
                     }.bind(this),
                     onResult: function (text, uttr, merge, words) {
                                 this.proc += merge;
+                                this.options.infoCallback({
+                                    send_bytes: this.send_bytes,
+                                    format: this.options.format,
+                                    send_packages: this.send,
+                                    processed: this.proc
+                                });
                                 this.options.dataCallback(text, uttr, merge, words);
                             }.bind(this),
                     onError: function (msg) {
@@ -232,7 +251,7 @@
         },
         /**
          * Определяет, стоит ли на паузе сессия распознавания.
-         * @returns {Boolean} true, если сессия распознавания речи стоит на паузе, false - иначе.
+         * @returns {Boolean} true, если сессия распознавания речи стоит на паузе, false — иначе.
          */
         isPaused: function () {
             return (!this.recorder || this.recorder.isPaused());
@@ -251,24 +270,34 @@
      * @static
      * @function
      * @name recognize
-     * @param {SpeechRecognitionOptions} [options] Параметры распознавания речи.
+     * @param {Object} [options] Параметры распознавания речи.
      * @param {callback:SpeechRecognition.initCallback} [options.initCallback] Функция-обработчик, которая будет вызвана по факту
      * инициализации сессии распознавания.
      * @param {callback:SpeechRecognition.errorCallback} [options.errorCallback] Функция-обработчик, которая будет вызвана при возникновении ошибки
      * (все ошибки критичны и приводят к завершению сессии).
      * @param {callback:SpeechRecognition.recognitionDoneCallback} [options.doneCallback] Функция-обработчик, в которую будет отправлен результат распознавания речи.
-     * @param {String} [options.apiKey=см. описание] API-ключ. По умолчанию принимает значение, указанное
-     * в настройках ya.speechkit.settings.apiKey.
-     * @param {String} [options.model=см. описание] Языковая модель для распознавания речи. Если параметр не указан, то используется
-     * значение, заданное в настройках ya.speechkit.model. Если в настройках значение не задано, то
-     * используется модель 'freeform'.
-     * @param {String} [options.applicationName] Название приложения. Для некоторых приложений мы поддерживаем специальную логику. Пример - sandbox.
-     * @param {String} [options.lang=см. описание] Язык, речь на котором следует распознавать. Если параметр не указан, то используется
-     * значение, заданное в настройках ya.speechkit.lang. Если в настройках значение не задано, то по умолчанию
-     * выбирается русский язык: 'ru-RU'.
-     * @param {Object} [advancedOptions] Дополнительные опции.
-     * @param {Boolean} [advancedOptions.partial_results=true] Отправлять ли на сервер промежуточные результаты.
-     * @param {Number} [advancedOptions.utterance_silence=120] Длительность промежутка тишины во время записи речи. Как только встречается
+     * @param {String} [options.apikey] API-ключ. По умолчанию принимает значение, указанное
+     * в глобальных настройках {@link settings}.
+     * @param {String} [options.model='notes'] Список доступных значений:
+     * <ul>
+     *     <li>'notes' (по умолчанию) — текст;</li>
+     *     <li>'queries' — короткие запросы;</li>
+     *     <li>'names' — имена; </li>
+     *     <li>'dates' — даты; </li>
+     *     <li>'maps' — топонимы;</li>
+     *     <li>'notes' — тексты;</li>
+     *     <li>'numbers' — числа.</li>
+     * </ul>
+     * <p>Если параметр не указан, то используется
+     * значение, заданное в глобальных настройках {@link settings}. Если в настройках значение не задано, то
+     * используется модель по умолчанию — 'notes'. </p>
+     * @param {String} [options.applicationName] Название приложения. Для некоторых приложений мы поддерживаем специальную логику. Пример — sandbox.
+     * @param {String} [options.lang='ru-RU'] Язык, речь на котором следует распознавать. Возможные значения: 'ru-RU', 'en-US', 'tr-TR'.
+     * <p>Если параметр не указан, то используется
+     * значение, заданное в глобальных настройках {@link settings}. Если в настройках значение не задано, то по умолчанию
+     * выбирается русский язык: 'ru-RU'. </p>
+     * @param {Boolean} [options.partialResults=true] Отправлять ли на сервер промежуточные результаты.
+     * @param {Number} [options.utteranceSilence=120] Длительность промежутка тишины во время записи речи (в десятках миллисекунд). Как только встречается
      * такой перерыв в речи, запись звука останавливается, и записанный фрагмент речи отправляется на сервер.
      */
 

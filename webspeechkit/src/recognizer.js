@@ -19,19 +19,21 @@
      * @param {callback:errorCallback} [options.onError]
      * @param {String} [options.uuid=см. описание] UUID сессии. По умолчанию принимает значение, указанное
      * в настройках ya.speechkit.settings.uuid.
-     * @param {String} [options.key=см. описание] API-ключ. Если не задан, то используется ключ, указанный
-     * в настройках ya.speechkit.settings.apiKey.
+     * @param {String} [options.apikey] API-ключ. Если не задан, то используется ключ, указанный
+     * в настройках ya.speechkit.settings.apikey.
      * @param {ya.speechkit.FORMAT} [options.format=ya.speechkit.FORMAT.PCM16] Формат аудиопотока.
      * @param {String} [options.url=см. описание] URL сервера, на котором будет производиться распознавание.
      * Если параметр не указан, то берется значение, заданное в настройках ya.speechkit.settings.asrUrl. По умолчанию оно равно
      * 'webasr.yandex.net/asrsocket.ws'.
      * @param {Boolean} [options.punctuation=true] Использовать ли пунктуацию.
      * @param {Boolean} [options.allowStrongLanguage=false] Отключить фильтрацию обсценной лексики.
-     * @param {String} [options.model=см. описание] Языковая модель, которая должна быть использована при распознавании.
+     * @param {String} [options.model='notes'] Языковая модель, которая должна быть использована при распознавании.
      * Если параметр не указан, то используется значение, заданное в настройках ya.speechkit.model. Если в настройках значение не задано, то
-     * используется модель 'freeform'.
-     * @param {String} [options.lang=см. описание] Язык распознавания. По умолчанию принимает значение, указанное
-     * в настройках ya.speechkit.settings.lang.
+     * используется модель 'notes'.
+     * @param {String} [options.lang='ru-RU'] Язык распознавания. Возможные значения: 'ru-RU', 'en-US', 'tr-TR', 'uk-UA'.
+     * <p>Если параметр не указан, то используется
+     * значение, заданное в настройках ya.speechkit.lang. Если в настройках значение не задано, то по умолчанию
+     * выбирается русский язык: 'ru-RU'. </p>
      * @param {String} [options.applicationName] Название приложения. Для некоторых приложений мы поддерживаем специальную логику. Пример - sandbox.
      */
     var Recognizer = function (options) {
@@ -39,7 +41,7 @@
             return new namespace.ya.speechkit.Recognizer(options);
         }
         this.options = namespace.ya.speechkit._extend(
-                        {apiKey: namespace.ya.speechkit.settings.apiKey,
+                        {apikey: namespace.ya.speechkit.settings.apikey,
                          uuid: namespace.ya.speechkit.settings.uuid,
                          applicationName: namespace.ya.speechkit.settings.applicationName,
                          url: namespace.ya.speechkit.settings.websocketProtocol +
@@ -53,7 +55,7 @@
                         options);
 
         // Backward compatibility
-        this.options.key = this.options.apiKey;
+        this.options.key = this.options.apikey;
         this.options.format = this.options.format.mime;
 
         this.sessionId = null;
