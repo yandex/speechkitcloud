@@ -1,8 +1,8 @@
 Description:
 
 This is a streaming client for Yandex speech recognition service (aka Yandex ASR).
-Comparing to http-api it provides much more info about recognized text and recognition proces itself.
-Also it has no limit for input file length.
+Comparing to http-api it provides much more info about a recognized text and the recognition process itself.
+Also it has no limit for an input file length.
 
 Install:
 

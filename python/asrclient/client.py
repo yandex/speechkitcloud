@@ -13,7 +13,8 @@ from google.protobuf.message import DecodeError as DecodeProtobufError
 from basic_pb2 import ConnectionResponse
 from voiceproxy_pb2 import ConnectionRequest, AddData, AddDataResponse, AdvancedASROptions
 from transport import Transport, TransportError
-from threading import Thread
+from concurrent.futures import ThreadPoolExecutor, Future
+
 
 DEFAULT_KEY_VALUE = 'paste-your-own-key'
 DEFAULT_SERVER_VALUE = 'asr.yandex.net'
@@ -254,7 +255,8 @@ def recognize(chunks,
             self.pending_answers = 0
             self.chunks_answered = 0
             self.utterance_start_index = 0
-            self.thread = Thread(target=self.check_result)
+            self.executor = ThreadPoolExecutor(max_workers=1)
+            self.future = None
 
         def check_result(self):
             while True:
@@ -262,9 +264,10 @@ def recognize(chunks,
                     self.gotresult(*self.server.get_utterance_if_ready())
                     time.sleep(0.01)
                 except Exception as e:
-                    if self.pending_answers > 0:
-                        print e
-                    return
+                    print "check result exception"
+                    print type(e)
+                    print e
+                    raise e
 
         def gotresult(self, utterance, start_time, end_time, messagesCount):
             self.chunks_answered += messagesCount
@@ -289,25 +292,38 @@ def recognize(chunks,
             try:
                 self.server.add_data(chunk)
                 self.pending_answers += 1
-
             except (DecodeProtobufError, ServerError, TransportError, SocketError) as e:
-                global retry_count
-                self.logger.info('Connection lost! ({0})'.format(type(e)))
-                self.logger.info(e.message)
-                if self.retry_count < reconnect_retry_count:
-                    self.retry_count += 1
-                    self.server.reconnect(reconnect_delay)
-                    self.logger.info('Resending current utterance (chunks {0}-{1})...'.format(self.utterance_start_index, self.utterance_start_index + len(self.unrecognized_chunks)))
-                    self.pending_answers = 0
-                    self.chunks_answered = 0
-                    for i, chunk in enumerate(self.unrecognized_chunks):
-                        if chunk is not None:
-                            self.logger.info('About to send chunk {0} ({1} bytes)'.format(self.utterance_start_index + i, len(chunk)))
-                        else:
-                            self.logger.info('No more chunks. Finalizing recognition.')
-                        self.send(chunk)
+                    self.logger.info("Something bad happened, waiting for reconnect!")
+                    time.sleep(1)
+                    self.resendOnError(e)
+            except Exception as e:
+                self.logger.info("dbg send")
+                print type(e)
+                print e
+
+        def reconnectOnError(self):
+            global retry_count
+            if self.retry_count < reconnect_retry_count:
+                self.retry_count += 1
+                self.server.reconnect(reconnect_delay)
+            else:
+                raise RuntimeError("Gave up reconnecting!")
+
+        def resendOnError(self):
+            self.logger.info('Resending current utterance (chunks {0}-{1})...'.format(self.utterance_start_index, self.utterance_start_index + len(self.unrecognized_chunks)))
+            self.pending_answers = 0
+            self.chunks_answered = 0
+            for i, chunk in enumerate(self.unrecognized_chunks):
+
+                while state.pending_answers > pending_limit:
+                    time.sleep(0.01)
+
+                if chunk is not None:
+                    self.logger.info('About to send chunk {0} ({1} bytes)'.format(self.utterance_start_index + i, len(chunk)))
                 else:
-                    raise RuntimeError("Gave up!")
+                    self.logger.info('No more chunks. Finalizing recognition.')
+
+                self.send(chunk)
 
 
     start_at = time.time()
@@ -317,16 +333,36 @@ def recognize(chunks,
     state.logger.info('Recognition was started.')
     chunks_count = 0
 
-    state.thread.setDaemon(True)
-    state.thread.start()
+    state.future = state.executor.submit(state.check_result)
 
     sent_length = 0
     for index, chunk in enumerate(chunks):
+
+        def check_future():
+            if not state.future.running():
+                state.logger.info("future not running!")
+                state.logger.info(state.future.exception())
+                return False
+            return True
+
+        def onError(exception):
+            state.logger.info('Connection lost! ({0})'.format(type(exception)))
+            state.logger.info(exception.message)
+            state.future.cancel()
+            state.reconnectOnError()
+            state.future = state.executor.submit(state.check_result)
+            state.resendOnError()
+
         while realtime and (sent_length / bytes_in_sec(format) > time.time() - start_at):
             time.sleep(0.01)
+            if not check_future():
+                onError(future.exception())
+
 
         while state.pending_answers > pending_limit:
             time.sleep(0.01)
+            if not check_future():
+                onError(state.future.exception())
 
         state.logger.info('About to send chunk {0} ({1} bytes)'.format(index, len(chunk)))
         state.unrecognized_chunks.append(chunk)
@@ -338,7 +374,7 @@ def recognize(chunks,
     state.unrecognized_chunks.append(None)
     state.send(None)
 
-    state.thread.join()
+    self.executor.result()
 
     state.logger.info('Recognition is done.')
 

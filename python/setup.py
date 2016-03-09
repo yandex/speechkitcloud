@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='asrclient',
-    version='0.3.8',
+    version='0.4.0',
     author='Andrey Pichugin, Alexander Artemenko, Andrey Semenov',
     author_email='voice@support.yandex.ru',
     description='Yandex ASR streaming client.',
@@ -11,6 +11,6 @@ setup(
     platforms=['Any'],
     license='GNU GPLv3',
     packages=['asrclient'],
-    install_requires=['protobuf', 'click'],
+    install_requires=['protobuf', 'click', 'futures'],
     scripts=['asrclient-cli.py'],
 )
