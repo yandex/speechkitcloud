@@ -90,11 +90,10 @@ class ServerConnection(object):
         self.inter_utt_silence = inter_utt_silence
         self.cmn_latency = cmn_latency
         self.ipv4 = ipv4
-        self.advanced_callback = advanced_callback
 
         self.log("uuid={0}".format(self.uuid))
 
-        self.session_id = ""
+        self.session_id = "not-set"
         self.connect()
 
 
@@ -186,7 +185,7 @@ class ServerConnection(object):
             self.t.sendProtobuf(AddData(lastChunk=False, audioData=chunk))
 
 
-    def get_utterance_if_ready(self):
+    def get_response_if_ready(self):
         response = self.t.recvProtobufIfAny(AddDataResponse)
 
         if response is not None:
@@ -197,28 +196,7 @@ class ServerConnection(object):
                     error_text += ', message is "{0}"'.format(response.message)
                 raise ServerError(error_text)
 
-            self.log("got response: endOfUtt={0}; len(recognition)={1}".format(response.endOfUtt, len(response.recognition)))
-
-            if self.advanced_callback is not None:
-                self.advanced_callback(response)
-
-            if len(response.recognition) == 0:
-                return "", 0.0, 0.0, response.messagesCount
-
-            text =  response.recognition[0].normalized.encode('utf-8')
-            merged = response.messagesCount
-            self.log("partial result: {0}; merged={1}".format(text, merged))
-
-            if response.endOfUtt:
-                start_time = response.recognition[0].align_info.start_time
-                end_time = response.recognition[0].align_info.end_time
-                self.log("start time: {0}; end_time={1}".format(start_time, end_time))
-                return text, start_time, end_time, merged
-            else:
-                return "", 0.0, 0.0, response.messagesCount
-
-        return None, 0.0, 0.0, 0
-
+        return response
 
 def recognize(chunks,
               callback=None,
@@ -242,14 +220,28 @@ def recognize(chunks,
               nopunctuation=False,
               realtime=False):
 
+    advanced_callback = None
+    advanced_utterance_callback = None
+    imported_module = None
+
     if callback_module is not None:
         imported_module = __import__(callback_module, globals(), locals(), [], -1)
-        advanced_callback = imported_module.advanced_callback
+
+        try:
+            advanced_callback = imported_module.advanced_callback
+        except AttributeError:
+            print "No advanced callback in the imported module!"
+
+        try:
+            advanced_utterance_callback = imported_module.advanced_utterance_callback
+        except AttributeError:
+            print "No advanced utterrance callback in the imported module!"
+
 
     class PendingRecognition(object):
         def __init__(self):
             self.logger = logging.getLogger('asrclient')
-            self.server = ServerConnection(server, port, key, app, service, model, lang, format, uuid, inter_utt_silence, cmn_latency, self.logger, not nopunctuation, ipv4, advanced_callback)
+            self.server = ServerConnection(server, port, key, app, service, model, lang, format, uuid, inter_utt_silence, cmn_latency, self.logger, not nopunctuation, ipv4)
             self.unrecognized_chunks = []
             self.retry_count = 0
             self.pending_answers = 0
@@ -261,7 +253,9 @@ def recognize(chunks,
         def check_result(self):
             while True:
                 try:
-                    self.gotresult(*self.server.get_utterance_if_ready())
+                    response = self.server.get_response_if_ready()
+                    if response is not None:
+                        self.on_response(response)
                     time.sleep(0.01)
                 except Exception as e:
                     print "check result exception"
@@ -269,23 +263,36 @@ def recognize(chunks,
                     print e
                     raise e
 
-        def gotresult(self, utterance, start_time, end_time, messagesCount):
-            self.chunks_answered += messagesCount
-            self.pending_answers -= messagesCount
+        def on_response(self, response):
 
+            messages_count = response.messagesCount
+            self.chunks_answered += messages_count
+            self.pending_answers -= messages_count
+
+            self.logger.info("got response: endOfUtt={0}; len(recognition)={1}; messages_count={2}".format(response.endOfUtt, len(response.recognition), messages_count))
+
+            if advanced_callback is not None:
+                advanced_callback(response)
+
+            if not response.endOfUtt:
+                return
+
+            utterance =  response.recognition[0].normalized.encode('utf-8')
+
+            start_time = response.recognition[0].align_info.start_time
+            end_time = response.recognition[0].align_info.end_time
+
+            self.logger.info('Chunks from {0} to {1}.'.format(self.utterance_start_index, self.utterance_start_index + self.chunks_answered))
+
+            if advanced_utterance_callback is not None:
+                advanced_utterance_callback(response, self.unrecognized_chunks[:self.chunks_answered])
+            elif callback is not None:
+                callback(utterance, start_time, end_time, self.unrecognized_chunks[:self.chunks_answered])
+
+            del self.unrecognized_chunks[:self.chunks_answered]
+            self.utterance_start_index += self.chunks_answered
+            self.chunks_answered = 0
             self.retry_count = 0
-            if utterance is not None:
-                self.logger.info('Utterance is not None')
-                if utterance != "":
-                    self.logger.info('Chunks from {0} to {1}:'.format(self.utterance_start_index, self.utterance_start_index + self.chunks_answered))
-                    if (callback is not None) and (advanced_callback is None):
-                        callback(utterance, start_time, end_time)
-                    del self.unrecognized_chunks[:self.chunks_answered]
-                    self.utterance_start_index += self.chunks_answered
-                    self.chunks_answered = 0
-                    self.logger.info("got utterance: start index {0}, pending answers {1}, chunks answered {2}".format(self.utterance_start_index, self.pending_answers, self.chunks_answered))
-                else:
-                    self.logger.info("utterance incomplete, hiding partial result")
 
         def send(self, chunk):
             self.logger.info("entering send() :start index {0}, pending answers {1}, chunks answered {2}".format(self.utterance_start_index, self.pending_answers, self.chunks_answered))
@@ -306,6 +313,7 @@ def recognize(chunks,
             if self.retry_count < reconnect_retry_count:
                 self.retry_count += 1
                 self.server.reconnect(reconnect_delay)
+                imported_module.session_id = self.server.session_id
             else:
                 raise RuntimeError("Gave up reconnecting!")
 
@@ -329,6 +337,7 @@ def recognize(chunks,
     start_at = time.time()
 
     state = PendingRecognition()
+    imported_module.session_id = state.server.session_id
 
     state.logger.info('Recognition was started.')
     chunks_count = 0
