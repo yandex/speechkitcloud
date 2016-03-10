@@ -45,9 +45,12 @@ def advanced_utterance_callback(asr_response, data_chunks):
 
     with open("{0}/{1}_{2}.sound".format(dirname, session_id, utterance_count), "wb") as sound_file:
         for chunk in data_chunks:
-            sound_file.write(chunk)
+            if chunk is not None:
+                sound_file.write(chunk)
 
     with open("{0}/{1}_{2}.txt".format(dirname, session_id, utterance_count), "w") as txt_file:
-        txt_file.write(asr_response.recognition[0].normalized.encode("utf-8"))
+        text = asr_response.recognition[0].normalized.encode("utf-8")
+        if text is not None:
+            txt_file.write(text)
 
     utterance_count += 1

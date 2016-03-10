@@ -258,10 +258,13 @@ def recognize(chunks,
                         self.on_response(response)
                     time.sleep(0.01)
                 except Exception as e:
-                    print "check result exception"
-                    print type(e)
-                    print e
-                    raise e
+                    if self.pending_answers > 0:
+                        print "check result exception"
+                        print type(e)
+                        print e
+                        raise e
+                    else:
+                        return
 
         def on_response(self, response):
 
@@ -383,7 +386,7 @@ def recognize(chunks,
     state.unrecognized_chunks.append(None)
     state.send(None)
 
-    self.executor.result()
+    state.future.result()
 
     state.logger.info('Recognition is done.')
 
