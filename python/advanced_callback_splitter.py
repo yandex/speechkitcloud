@@ -1,3 +1,5 @@
+import os
+import datetime
 from asrclient.voiceproxy_pb2 import AddDataResponse as AsrResponse
 
 """
@@ -6,6 +8,21 @@ use it like
 """
 
 session_id = "not-set"
+start_timestamp = datetime.datetime.now().strftime("%d-%m-%Y_%H:%M:%S")
+
+def mkdir_p(path):
+    try:
+        os.makedirs(path)
+    except OSError as exc:  # Python >2.5
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            raise
+
+dirname = "./{0}/".format(start_timestamp)
+mkdir_p(start_timestamp)
+
+utterance_count = 0
 
 def advanced_callback(asr_response):
     print "Got response:"
@@ -23,8 +40,17 @@ def advanced_callback(asr_response):
 
 
 def advanced_utterance_callback(asr_response, data_chunks):
-    data_length = 0
-    for chunk in data_chunks:
-        data_length += len(chunk)
+    global utterance_count
     print "Got complete utterance, for {0} data_chunks, session_id = {1}".format(len(data_chunks), session_id)
-    print "Data length = {0}".format(data_length)
+
+    with open("{0}/{1}_{2}.sound".format(dirname, session_id, utterance_count), "wb") as sound_file:
+        for chunk in data_chunks:
+            if chunk is not None:
+                sound_file.write(chunk)
+
+    with open("{0}/{1}_{2}.txt".format(dirname, session_id, utterance_count), "w") as txt_file:
+        text = asr_response.recognition[0].normalized.encode("utf-8")
+        if text is not None:
+            txt_file.write(text)
+
+    utterance_count += 1
