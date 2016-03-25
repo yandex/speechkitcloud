@@ -316,7 +316,8 @@ def recognize(chunks,
             if self.retry_count < reconnect_retry_count:
                 self.retry_count += 1
                 self.server.reconnect(reconnect_delay)
-                imported_module.session_id = self.server.session_id
+                if imported_module is not None:
+                    imported_module.session_id = self.server.session_id
             else:
                 raise RuntimeError("Gave up reconnecting!")
 
@@ -340,7 +341,8 @@ def recognize(chunks,
     start_at = time.time()
 
     state = PendingRecognition()
-    imported_module.session_id = state.server.session_id
+    if imported_module is not None:
+        imported_module.session_id = state.server.session_id
 
     state.logger.info('Recognition was started.')
     chunks_count = 0
