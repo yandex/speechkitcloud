@@ -34,6 +34,10 @@ message AdvancedASROptions
   optional int32 cmn_window = 18 [default = 600];
 
   optional int32 cmn_latency = 19 [default = 150];
+
+  optional bool capitalize = 20 [default = false];
+
+  optional int32 expected_num_count = 21 [default = 0];
 }
 
 message ConnectionRequest
@@ -95,13 +99,13 @@ message AlignInfo
   optional float start_time = 1;
 
   optional float end_time = 2;
-  
+
   optional float acoustic_score = 3;
 
   optional float graph_score = 4;
 
   optional float lm_score = 5;
-   
+
   optional float total_score = 6;
 }
 

@@ -81,6 +81,14 @@ except exceptions.ImportError:
 @click.argument('files',
                 nargs=-1,
                 type=click.File('rb'))
+@click.option('--capitalize',
+              is_flag=True,
+              help='Should each utterance start with a capital letter?')
+@click.option('--expected-num-count',
+              default=0,
+              type=int,
+              help='How many digits should be in the answer? Special option, you don\'t need it!')
+
 def main(chunk_size, start_with_chunk, max_chunks_count, record, files, silent, **kwars):
     if not silent:
         logging.basicConfig(level=logging.INFO)
