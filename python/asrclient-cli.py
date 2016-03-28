@@ -5,6 +5,7 @@
 import logging
 import click
 import exceptions
+import sys
 
 import asrclient.client as client
 
