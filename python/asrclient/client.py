@@ -122,7 +122,7 @@ class ServerConnection(object):
 
     def send_init_request(self):
         request = ConnectionRequest(
-            speechkitVersion='Not Speechkit',
+            speechkitVersion='',
             serviceName=self.service,
             uuid=self.uuid,
             apiKey=self.key,
