@@ -23,7 +23,7 @@ package VoiceProxyProtobuf
 import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
-import BasicProtobuf "github.com/speechkitcloud/go/BasicProtobuf"
+import BasicProtobuf "github.com/yandex/speechkitcloud/go/BasicProtobuf"
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
