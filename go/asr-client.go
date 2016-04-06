@@ -11,11 +11,20 @@ import (
 	"github.com/yandex/speechkitcloud/go/VoiceProxyProtobuf"
 	"io"
 	"log"
-	"math"
 	"net"
 	"os"
 	"strconv"
 )
+
+type Debug bool
+
+func (d Debug) Printf(s string, a ...interface{}) {
+	if d {
+		log.Printf(s, a...)
+	}
+}
+
+var dbg Debug
 
 func sendData(conn io.Writer, data []byte) (int, error) {
 	written1, err := fmt.Fprintf(conn, "%x\r\n", len(data))
@@ -38,7 +47,7 @@ func recvData(connReader *bufio.Reader) ([]byte, error) {
 	connRespProtoLength, err := strconv.ParseInt(resp[:len(resp)-2], 16, 64)
 	check("recvData / strconv.ParseInt", err)
 
-	log.Printf(">> 0x%s -> %d\n", resp[:len(resp)-2], int(connRespProtoLength))
+	dbg.Printf(">> 0x%s -> %d\n", resp[:len(resp)-2], int(connRespProtoLength))
 
 	buffer := make([]byte, int(connRespProtoLength))
 	_, err = io.ReadFull(connReader, buffer)
@@ -69,8 +78,12 @@ func main() {
 	topicPtr := flag.String("topic", "freeform", "Recognition model topic (aka \"model\").")
 	formatPtr := flag.String("format", "audio/x-pcm;bit=16;rate=16000", "Input file format.")
 	langPtr := flag.String("lang", "ru-RU", "Recognition language. ru-RU | en-EN | tr-TR | uk-UA.")
+	verbosePtr := flag.Bool("verbose", false, "Print more debug output.")
+	chunkSizePtr := flag.Int("chunk-size", 32768, "Client chops input file into chunks and sends it one-by-one in a streaming manner.\n\rDefault value roughly equals to one second of audio in default format.")
 
 	flag.Parse()
+
+	dbg = Debug(*verbosePtr)
 
 	if len(flag.Args()) == 0 {
 		log.Fatal("No input file!")
@@ -78,7 +91,7 @@ func main() {
 	fileName := flag.Args()[0]
 
 	connectionString := fmt.Sprintf("%v:%v", *serverPtr, *portPtr)
-	log.Printf(connectionString)
+	dbg.Printf(connectionString)
 
 	conn, err := net.Dial("tcp", connectionString)
 	check(1, err)
@@ -88,7 +101,7 @@ func main() {
 	upgradeRequest.WriteString("GET /asr_partial HTTP/1.1\r\n")
 	upgradeRequest.WriteString("Upgrade: dictation\r\n\r\n")
 
-	log.Printf("%s", upgradeRequest.String())
+	dbg.Printf("%s", upgradeRequest.String())
 	_, err = upgradeRequest.WriteTo(conn)
 	check(3, err)
 
@@ -97,14 +110,14 @@ func main() {
 	resp, err := reader.ReadString('\n')
 	for resp != "" {
 		check(4, err)
-		log.Printf(resp)
+		dbg.Printf(resp)
 		if resp == "\r\n" {
 			break
 		}
 		resp, err = reader.ReadString('\n')
 	}
 
-	log.Printf(">> done reading upgrade response, trying to send protobuf\n")
+	dbg.Printf(">> done reading upgrade response, trying to send protobuf\n")
 
 	initProto := &VoiceProxyProtobuf.ConnectionRequest{
 		ApiKey:           proto.String(*apiKeyPtr),
@@ -126,16 +139,21 @@ func main() {
 	err = recvProtoMessage(reader, connRespProto)
 	check(9, err)
 
-	log.Printf(">> done reading connection response proto\n")
-	log.Printf(">> connRespProto { %v}\n", connRespProto)
+	dbg.Printf(">> done reading connection response proto\n")
+	dbg.Printf(">> connRespProto { %v}\n", connRespProto)
 
-	var chunkSize = 10000
 	f, err := os.Open(fileName)
 	check(10, err)
 	defer f.Close()
 	fileInfo, err := f.Stat()
 	check(12, err)
-	expectedChunksCount := int32(math.Ceil(float64(fileInfo.Size())/float64(chunkSize))) + 1
+
+	var chunkSize int64 = int64(*chunkSizePtr)
+	expectedChunksCount := int32(fileInfo.Size() / chunkSize)
+	if fileInfo.Size()%chunkSize != 0 {
+		expectedChunksCount++ // last chunk is probably < chunkSize
+	}
+	expectedChunksCount++ // final empty chunk
 
 	go func() {
 		var chunkCount int
@@ -143,9 +161,9 @@ func main() {
 		for err == nil {
 			var readCount int
 			readCount, err = f.Read(chunkBuff)
-			log.Printf(">> read chunk %d\n", readCount)
+			dbg.Printf(">> read chunk %d\n", readCount)
 			if readCount > 0 {
-				log.Printf(">> sending chunk %d\n", chunkCount)
+				dbg.Printf(">> sending chunk %d\n", chunkCount)
 				addDataProto := &VoiceProxyProtobuf.AddData{LastChunk: proto.Bool(false), AudioData: chunkBuff}
 				_, err = sendProtoMessage(conn, addDataProto)
 				check(11, err)
@@ -159,22 +177,22 @@ func main() {
 
 	var loopCounter int32
 	for err == nil && loopCounter < expectedChunksCount {
-		log.Printf(">> recv proto loop %v/%v\n", loopCounter, expectedChunksCount)
+		dbg.Printf(">> recv proto loop %v/%v\n", loopCounter, expectedChunksCount)
 		addDataRespProto := &VoiceProxyProtobuf.AddDataResponse{}
 		err = recvProtoMessage(reader, addDataRespProto)
-		log.Printf(">> addDataRespProto { %v}\n", addDataRespProto)
+		dbg.Printf(">> addDataRespProto { %v}\n", addDataRespProto)
 
 		if err == nil {
 			loopCounter += addDataRespProto.GetMessagesCount()
-			log.Printf(">> loopCounter increased, now %v/%v\n", loopCounter, expectedChunksCount)
+			dbg.Printf(">> loopCounter increased, now %v/%v\n", loopCounter, expectedChunksCount)
 			recognitions := addDataRespProto.GetRecognition()
 			if recognitions != nil && len(recognitions) > 0 {
-				log.Printf(">> got result: %v; endOfUtt: %v\n", addDataRespProto.GetRecognition()[0].GetNormalized(), addDataRespProto.GetEndOfUtt())
+				fmt.Printf("got result: %v; endOfUtt: %v\n", addDataRespProto.GetRecognition()[0].GetNormalized(), addDataRespProto.GetEndOfUtt())
 			}
 		}
 	}
 
 	check(14, err)
 
-	log.Printf(">> done, all fine!")
+	fmt.Printf("Done, all fine!\n")
 }
