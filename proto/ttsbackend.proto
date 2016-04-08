@@ -1,0 +1,78 @@
+import "basic.proto";
+
+package TTS;
+
+message Generate
+{
+  optional string sessionId = 30;
+  
+  //Language code, ex.: ru, en
+  required string lang = 1;
+  
+  message WeightedParam
+  {
+    required string name = 1;
+    required float weight = 2;
+  }
+
+  //Text for synthesis
+  required string text = 2;
+
+  //Speed of speech <1.0 - slower, >1.0 - faster
+  optional float speed  = 3 [default = 1.0];
+
+  //Supported voices are: zhar, omazh, jane, ermil, oksana
+  repeated WeightedParam voices = 11;
+
+  //Supported emotions are: good, neutral, evil
+  repeated WeightedParam emotions = 12;
+
+  //Supported genders are: male, female
+  repeated WeightedParam genders = 13;
+  
+  optional bool requireMetainfo = 5 [default = false];
+
+  optional float msd_threshold = 14;
+  optional float mgc_recurrence = 15;
+  optional float subtract_durations_sigmas = 17;
+  optional float lf0_postfilter = 18;
+  optional float mgcGVWeight = 19;
+  optional float lf0GVWeight = 20;
+  optional float mvfGVWeight = 21;
+  optional float mgc_postfilter1 = 22;
+  optional float mgc_postfilter2 = 23;
+
+  optional bool fast = 24;
+}
+
+message GenerateResponse
+{
+  message WordEvent
+  {
+    required int32 firstCharPositionInText = 1;
+    required int32 bytesLengthInSignal = 2;
+    optional string text = 3;
+  }
+  message Phoneme
+  {
+    required string ttsPhoneme = 1;
+    required string IPAPhoneme = 2;
+    required int32 viseme = 5;
+    required int32 durationMs = 3;
+    required int32 positionInBytesStream = 4;
+  }
+  
+  // words and phomenes would be empty, unless requireMetainfo is set in GenerateRequest
+  repeated WordEvent words = 1;
+  repeated Phoneme phonemes = 2;
+  optional bytes audioData = 3;
+  required bool completed = 4;
+
+  optional BasicProtobuf.ConnectionResponse.ResponseCode responseCode = 5;
+  //Error message
+  optional string message = 6; 
+}
+
+message StopGeneration
+{
+}
