@@ -26,7 +26,8 @@ asrclient-cli.py [OPTIONS] [FILES]...
 Options:
   -k, --key TEXT                  You could get it at
                                   https://developer.tech.yandex.ru/. Default
-                                  is "paste-your-own-key".
+                                  is "paste-your-own-key". 
+                                  Use "internal" with Speechkit Box.
   -s, --server TEXT               Default is asr.yandex.net.
   -p, --port INTEGER              Default is 80.
   --format TEXT                   Input file format. Default is
