@@ -255,6 +255,8 @@ def recognize(chunks,
             self.utterance_start_index = 0
             self.executor = ThreadPoolExecutor(max_workers=1)
             self.future = None
+            self.last_end_time = 0
+            self.correction_delta = 0
 
         def check_result(self):
             while True:
@@ -280,16 +282,24 @@ def recognize(chunks,
 
             self.logger.info("got response: endOfUtt={0}; len(recognition)={1}; messages_count={2}".format(response.endOfUtt, len(response.recognition), messages_count))
 
-            if advanced_callback is not None:
-                advanced_callback(response)
+            if response.endOfUtt:
+                start_time = response.recognition[0].align_info.start_time + self.correction_delta
+                end_time = response.recognition[0].align_info.end_time + self.correction_delta
 
-            if not response.endOfUtt:
+                if start_time < self.last_end_time:
+                    self.correction_delta = self.last_end_time
+
+                self.last_end_time = end_time
+
+                if advanced_callback is not None:
+                    advanced_callback(response, self.correction_delta)
+
+            else:
+                if advanced_callback is not None:
+                    advanced_callback(response)
                 return
 
             utterance =  response.recognition[0].normalized.encode('utf-8')
-
-            start_time = response.recognition[0].align_info.start_time
-            end_time = response.recognition[0].align_info.end_time
 
             self.logger.info('Chunks from {0} to {1}.'.format(self.utterance_start_index, self.utterance_start_index + self.chunks_answered))
 
