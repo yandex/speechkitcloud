@@ -35,6 +35,9 @@ except exceptions.ImportError:
 @click.option('--lang',
               help='Recognition language. ru-RU | en-EN | tr-TR | uk-UA. Default is {0}.'.format(client.DEFAULT_LANG_VALUE),
               default=client.DEFAULT_LANG_VALUE)
+@click.option('--app',
+              help='Application. Default is local.',
+              default="local")
 @click.option('--chunk-size',
               default=client.DEFAULT_CHUNK_SIZE_VALUE,
               help='Default value {0} bytes roughly equals to one second of audio in default format.'.format(client.DEFAULT_CHUNK_SIZE_VALUE))
