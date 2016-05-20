@@ -19,9 +19,6 @@ def mkdir_p(path):
         else:
             raise
 
-dirname = "./{0}/".format(start_timestamp)
-mkdir_p(start_timestamp)
-
 utterance_count = 0
 
 def advanced_callback(asr_response, correction = 0):
@@ -39,8 +36,12 @@ def advanced_callback(asr_response, correction = 0):
         r_count += 1
 
 
-def advanced_utterance_callback(asr_response, data_chunks):
+def advanced_utterance_callback(asr_response, data_chunks):    
     global utterance_count
+
+    dirname = "./{0}_{1}/".format(start_timestamp, session_id)
+    if not os.path.isdir(dirname):
+        mkdir_p(dirname)
     print "Got complete utterance, for {0} data_chunks, session_id = {1}".format(len(data_chunks), session_id)
 
     with open("{0}/{1}_{2}.sound".format(dirname, session_id, utterance_count), "wb") as sound_file:
