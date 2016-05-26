@@ -18,6 +18,7 @@ sudo pip install <generated-file-name>
 
 ...or you can provide the dependencies manually and run ./asrclient-cli.py directly (without install).
 
+1. asrclient-cli.py
 
 Usage:
 
@@ -88,6 +89,48 @@ To convert some random sound file to this, suggest
 
 sox sound.mp3 -t wav -c 1 --rate 16000 -b 16 -e signed-integer sound.wav
 
+2. ttsclient-cli.py
+
+Usage: ttsclient-cli.py [OPTIONS] [FILE] [TEXTS]...
+
+Options:
+  -k, --key TEXT       You could get it at https://developer.tech.yandex.ru/.
+                       Default is "paste-your-own-key".
+  -s, --server TEXT    Default is tts.voicetech.yandex.net.
+  -p, --port INTEGER   Default is 80.
+  --lang TEXT          Synthesis language. ru-RU | en-EN | tr-TR | uk-UA.
+                       Default is ru-RU.
+  --speaker TEXT       Speaker for speech synthesis. Call this script with
+                       --list-speakers flag to get speakers list.
+  --emotion TEXT       Emotion for speech synthesis. Available values: good,
+                       neutral, evil. Default value depends on speaker's
+                       original emotion.
+  --gender TEXT        Speaker's gender for speech synthesis. Available
+                       values: male, female. Default value depends on
+                       speaker's original gender.
+  --textfile FILENAME  Read text from this file instead of command line
+                       arguments.
+  --uuid TEXT          UUID of your request. It can be helpful for further
+                       logs analysis. Default is random.
+  --ipv4               Use ipv4 only connection.
+  --list-speakers      Only list available speakers, don't try to generate
+                       anything.
+  --silent             Don't print debug messages.
+  --help               Show this message and exit.
+
+Examples:
+
+ttsclient-cli.py --help
+
+ttsclient-cli.py --key=active-key-from-your-account --list-speakers
+
+ttsclient-cli.py --key=active-key-from-your-account --speaker jane --lang en-EN out.wav "Hello!"
+
+ttsclient-cli.py --key=active-key-from-your-account --speaker jane --textfile request.txt out.wav
+
+More:
+
+We generate sound in format audio/x-wav, single channel, 16000Hz, 16-bit signed integer PCM encoding.
 
 Useful links:
 
