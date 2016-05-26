@@ -1,0 +1,103 @@
+import "basic.proto";
+import "ttsbackend.proto";
+
+package TTS;
+
+///////////////////////////////////////////////////////////////////////////
+// Usage:
+//(1) send ConnectionRequest, receive ConnectionResponse
+//(2) send ParamsRequest, receive ParamsResponse
+//(3) send GenerateRequest, recieve GenerateResponse
+//
+// TTS proxy requires all this steps in fixed order
+// and none could be skipped
+
+message ConnectionRequest
+{
+  required string serviceName = 1; // "tts", "asr", "asr_dictation", etc.
+
+  required string uuid = 2;
+
+  optional int32 protocolVersion = 3 [default = 1];
+
+  optional string deviceName = 4;
+
+  // new field v2
+
+  optional string speechkitVersion = 5;
+
+  // warning, apiKey options only temporary (for /tcp hand), for /ytcp it absence will result in ConnectionResponse::KeyInvalid
+  optional string apiKey = 6;
+
+  optional string applicationName = 7;
+
+  optional string coords = 8;
+}
+
+///////////////////////////////////////////////////////////////////////////
+
+message ParamsRequest
+{
+  optional bool listVoices = 1;
+}
+
+message ParamsResponse
+{
+  message Voice
+  {
+    // use as "voice" in GenerateRequest
+    required string name = 1;
+    // 1 female, 2 male
+    required int32 gender = 2;
+    // 0x809 english
+    // 0x419 ru
+    // 0 for "internation" voice, that can be used with any language
+    required int32 languageId = 3;
+
+    required int32 initialSampleFreq = 4;
+
+    // fine display name for menus and gui
+    optional string displayName = 5;
+
+    // this voice can be used in lowLevelGenerateRequest for mixing
+    optional bool coreVoice = 6;
+  }
+
+  repeated Voice voiceList = 1;
+}
+
+///////////////////////////////////////////////////////////////////////////
+
+message GenerateRequest
+{
+  required string lang = 1;
+  required string text = 2;
+  required string application = 3;
+  required string platform = 4;
+  required string voice = 6;
+  optional float speed = 31;
+  optional string emotion = 10;
+
+  // WARNING: for ytcp only Pcm (high/low) is VALID option
+  enum Quality {
+    High = 0; Low = 1;
+    // Low means resample to 8000!
+    // High means initialSampleFreq (see ParamsResponse)
+  }
+
+  enum Format {
+    Wav = 0; Pcm = 1; Spx = 2; // Mp3 = 2;
+  }
+
+  optional Quality quality = 7 [default = High];
+  optional Format format = 8 [default = Spx];
+  optional bool requireMetainfo = 5 [default = false];
+
+  optional Generate lowLevelGenerateRequest = 30;
+
+  // keep calm, and do not use '9' slot again
+  optional string speed_obsolete = 9;
+
+  optional float volume = 32;
+}
+
