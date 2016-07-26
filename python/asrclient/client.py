@@ -139,7 +139,7 @@ class ServerConnection(object):
                                   utterance_silence=int(self.inter_utt_silence),
                                   cmn_latency=self.cmn_latency,
                                   capitalize=self.capitalize,
-                                  expected_num_count=self.expected_num_count
+                                  expected_num_count=self.expected_num_count,
                                )
             )
 
@@ -226,7 +226,6 @@ def recognize(chunks,
               capitalize=False,
               expected_num_count=0):
 
-    advanced_callback = None
     advanced_utterance_callback = None
     imported_module = None
 
