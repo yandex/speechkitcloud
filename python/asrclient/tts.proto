@@ -86,7 +86,7 @@ message GenerateRequest
   }
 
   enum Format {
-    Wav = 0; Pcm = 1; Spx = 2; // Mp3 = 2;
+    Wav = 0; Pcm = 1; Spx = 2; Opus = 3; // Mp3 = 2;
   }
 
   optional Quality quality = 7 [default = High];
@@ -98,6 +98,6 @@ message GenerateRequest
   // keep calm, and do not use '9' slot again
   optional string speed_obsolete = 9;
 
-  optional float volume = 32;
+  optional float volume = 32 [default = 1.0];
 }
 

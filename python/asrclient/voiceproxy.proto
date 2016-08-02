@@ -38,6 +38,12 @@ message AdvancedASROptions
   optional bool capitalize = 20 [default = false];
 
   optional int32 expected_num_count = 21 [default = 0];
+  
+  repeated string grammar = 22;
+  
+  optional string srgs = 23;
+
+  optional string biometry = 24;
 }
 
 message ConnectionRequest
@@ -129,6 +135,15 @@ message Result
   optional VoiceProxyProtobuf.AlignInfo align_info = 4;
 }
 
+message BiometryResult
+{
+    required string classname = 1;
+
+    required float confidence = 2;
+
+    optional string tag = 3;
+}
+
 message AddDataResponse
 {
   required BasicProtobuf.ConnectionResponse.ResponseCode responseCode = 1;
@@ -144,6 +159,8 @@ message AddDataResponse
 
   // if not empty messageCounter should be 0
   optional string musicProxyResponse = 5;
+
+  repeated BiometryResult bioResult = 6;
 }
 
 

@@ -13,4 +13,5 @@ setup(
     packages=['asrclient'],
     install_requires=['protobuf', 'click', 'futures'],
     scripts=['asrclient-cli.py', 'ttsclient-cli.py'],
+    package_data={'asrclient': ['*.proto']},
 )

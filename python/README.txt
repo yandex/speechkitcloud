@@ -8,9 +8,10 @@ Install:
 
 You need to provide some python dependencies. Suggest something like this...
 
-sudo apt-get install python2.7 python-setuptools python-pip git
+sudo apt-get install python2.7 python-setuptools python-pip git protobuf-compiler
 git clone https://github.com/yandex/speechkitcloud
 cd speechkitcloud/python
+protoc -I=asrclient --python_out=asrclient asrclient/*.proto
 python ./setup.py sdist
 
 cd dist
