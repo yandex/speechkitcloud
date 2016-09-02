@@ -42,7 +42,7 @@ message Generate
   optional float mgc_postfilter1 = 22;
   optional float mgc_postfilter2 = 23;
 
-  optional bool fast = 24;
+  optional bool chunked = 24; //ex-fast
 }
 
 message GenerateResponse

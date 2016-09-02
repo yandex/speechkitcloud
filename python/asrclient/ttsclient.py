@@ -24,9 +24,10 @@ DEFAULT_LANG_VALUE = 'ru-RU'
 
 DEFAULT_UUID_VALUE = randomUuid().hex
 
-gWavHeader = ""
+DEFAULT_FORMAT_VALUE = 'wav'
+DEFAULT_QUALITY_VALUE = 'high'
+
 def generateWavHeader(sample_rate, mono=True):
-    global gWavHeader
     gWavHeader = "RIFF\xff\xff\xff\xffWAVEfmt \x10\x00\x00\x00\x01\x00" + ("\x01" if mono else "\x02") + "\x00"
     wav_rate = ""
     wav_rate_align = ""
@@ -40,7 +41,7 @@ def generateWavHeader(sample_rate, mono=True):
     gWavHeader += wav_rate_align
     gWavHeader += "\x02" if mono else "\x04"
     gWavHeader += "\x00\x10\x00data\xff\xff\xff\xff"
-generateWavHeader(16000)
+    return gWavHeader
 
 def upgradeToProtobuf(transport, server, port):
         transport.verbose = False
@@ -89,7 +90,7 @@ def list_speakers(server=DEFAULT_SERVER_VALUE, port=DEFAULT_PORT_VALUE, key=DEFA
 
         print ", ".join([v.name for v in res.voiceList if v.coreVoice])
 
-def generate(file, text, speaker, server=DEFAULT_SERVER_VALUE, port=DEFAULT_PORT_VALUE, key=DEFAULT_KEY_VALUE, uuid=DEFAULT_UUID_VALUE, lang=DEFAULT_LANG_VALUE, emotion=None, gender=None, ipv4=False):
+def generate(file, text, speaker, server=DEFAULT_SERVER_VALUE, port=DEFAULT_PORT_VALUE, key=DEFAULT_KEY_VALUE, uuid=DEFAULT_UUID_VALUE, lang=DEFAULT_LANG_VALUE, emotion=None, gender=None, ipv4=False, format=DEFAULT_FORMAT_VALUE, quality=DEFAULT_QUALITY_VALUE):
     logger = logging.getLogger('asrclient')
     with Transport(server, port, timeout=None, verbose=False, enable_ssl=(port==443), ipv4=ipv4) as t:
         if not upgradeToProtobuf(t, server, port):
@@ -123,7 +124,9 @@ def generate(file, text, speaker, server=DEFAULT_SERVER_VALUE, port=DEFAULT_PORT
             platform="local",
             voice=speaker,
             requireMetainfo=False,
-            format=GenerateRequest.Pcm,
+            format={'wav': GenerateRequest.Pcm, 'pcm': GenerateRequest.Pcm, 'speex': GenerateRequest.Spx, 'opus': GenerateRequest.Opus}.get(format, GenerateRequest.Pcm),
+            quality=({'low': GenerateRequest.Low, 'high': GenerateRequest.High, 'ultra': GenerateRequest.UltraHigh}[quality]),
+            chunked=True
         )
 
         if emotion or gender:
@@ -138,10 +141,12 @@ def generate(file, text, speaker, server=DEFAULT_SERVER_VALUE, port=DEFAULT_PORT
             ))
         
         t.sendProtobuf(request)
-        file.write(gWavHeader)
+        if format == 'wav':
+            file.write(generateWavHeader({'ultra': 48000,
+                                            'high': 16000,
+                                            'low': 8000}[quality]))
         while True:
             ttsResponse = t.recvProtobuf(GenerateResponse)
-            
             if ttsResponse.message:
                 logger.info("Error on synthesis: %s" % (ttsResponse.message,))
                 sys.exit(2)

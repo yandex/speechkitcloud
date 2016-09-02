@@ -140,6 +140,7 @@ class ServerConnection(object):
                                   cmn_latency=self.cmn_latency,
                                   capitalize=self.capitalize,
                                   expected_num_count=self.expected_num_count,
+                                  biometry="children",
                                )
             )
 
@@ -282,14 +283,15 @@ def recognize(chunks,
             self.logger.info("got response: endOfUtt={0}; len(recognition)={1}; messages_count={2}".format(response.endOfUtt, len(response.recognition), messages_count))
 
             if response.endOfUtt:
-                start_time = response.recognition[0].align_info.start_time + self.correction_delta
-                end_time = response.recognition[0].align_info.end_time + self.correction_delta
+                if (len(response.recognition) > 0):
+                    start_time = response.recognition[0].align_info.start_time + self.correction_delta
+                    end_time = response.recognition[0].align_info.end_time + self.correction_delta
 
-                if start_time < self.last_end_time:
-                    self.correction_delta = self.last_end_time
+                    if start_time < self.last_end_time:
+                        self.correction_delta = self.last_end_time
 
-                self.last_end_time = end_time
-
+                    self.last_end_time = end_time
+                
                 if advanced_callback is not None:
                     advanced_callback(response, self.correction_delta)
 

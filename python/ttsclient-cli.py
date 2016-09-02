@@ -49,6 +49,12 @@ import asrclient.ttsclient as client
 @click.option('--silent',
               is_flag=True,
               help='Don\'t print debug messages.')
+@click.option('--format',
+              default=client.DEFAULT_FORMAT_VALUE,
+              help='Format of output audio file. wav | pcm | speex | opus. Default is {0}.'.format(client.DEFAULT_FORMAT_VALUE))
+@click.option('--quality',
+              default=client.DEFAULT_QUALITY_VALUE,
+              help='Quality output audio file. ultra | high | low. Default is {0}.'.format(client.DEFAULT_QUALITY_VALUE))
 @click.argument('file',
               required=False,
               type=click.File('wb'))

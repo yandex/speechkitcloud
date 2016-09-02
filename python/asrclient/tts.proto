@@ -78,15 +78,15 @@ message GenerateRequest
   optional float speed = 31;
   optional string emotion = 10;
 
-  // WARNING: for ytcp only Pcm (high/low) is VALID option
   enum Quality {
-    High = 0; Low = 1;
+    High = 0; Low = 1; UltraHigh = 2;
     // Low means resample to 8000!
-    // High means initialSampleFreq (see ParamsResponse)
+    // High meand resample to 16000.
+    // UltraHigh means 48000 (or 32000 for SPEEX)
   }
 
   enum Format {
-    Wav = 0; Pcm = 1; Spx = 2; Opus = 3; // Mp3 = 2;
+    Wav = 0; Pcm = 1; Spx = 2; Opus = 3;
   }
 
   optional Quality quality = 7 [default = High];
@@ -99,5 +99,7 @@ message GenerateRequest
   optional string speed_obsolete = 9;
 
   optional float volume = 32 [default = 1.0];
+
+  optional bool chunked = 33 [default = false];
 }
 
