@@ -51,7 +51,7 @@ Options:
                                   Default value is 0.5 seconds.
   --inter-utt-silence FLOAT       A pause between phrases finalization.
                                   Default value is 1.2 seconds.
-  --cmn-latency INTEGER           CMN latecny parameter. Default value is 50.
+  --cmn-latency INTEGER           CMN latency parameter. Default value is 50.
   --reconnect-retry-count INTEGER
                                   Sequentional reconnects before giving up.
                                   Default is 5.
