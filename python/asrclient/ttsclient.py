@@ -27,7 +27,7 @@ DEFAULT_UUID_VALUE = randomUuid().hex
 DEFAULT_FORMAT_VALUE = 'wav'
 DEFAULT_QUALITY_VALUE = 'high'
 
-def generateWavHeader(sample_rate, mono=True):
+def generateWavHeader(sample_rate, mono=True, data_size=0):
     gWavHeader = "RIFF\xff\xff\xff\xffWAVEfmt \x10\x00\x00\x00\x01\x00" + ("\x01" if mono else "\x02") + "\x00"
     wav_rate = ""
     wav_rate_align = ""
@@ -41,6 +41,18 @@ def generateWavHeader(sample_rate, mono=True):
     gWavHeader += wav_rate_align
     gWavHeader += "\x02" if mono else "\x04"
     gWavHeader += "\x00\x10\x00data\xff\xff\xff\xff"
+
+    if data_size > 0:
+        size_of_wav = data_size + 36
+        hexWavSize = ""
+        hexDataSize = ""
+        for i in xrange(0,4):
+            hexWavSize += chr(size_of_wav % 256)
+            size_of_wav /= 256
+            hexDataSize += chr(data_size % 256)
+            data_size /= 256
+        gWavHeader = gWavHeader[:4] + hexWavSize + gWavHeader[8:40] + hexDataSize
+
     return gWavHeader
 
 def upgradeToProtobuf(transport, server, port):
@@ -88,7 +100,7 @@ def list_speakers(server=DEFAULT_SERVER_VALUE, port=DEFAULT_PORT_VALUE, key=DEFA
 
         res = t.recvProtobuf(ParamsResponse)
 
-        print ", ".join([v.name for v in res.voiceList if v.coreVoice])
+        print(", ".join([v.name for v in res.voiceList if v.coreVoice]))
 
 def generate(file, text, speaker, server=DEFAULT_SERVER_VALUE, port=DEFAULT_PORT_VALUE, key=DEFAULT_KEY_VALUE, uuid=DEFAULT_UUID_VALUE, lang=DEFAULT_LANG_VALUE, emotion=None, gender=None, ipv4=False, format=DEFAULT_FORMAT_VALUE, quality=DEFAULT_QUALITY_VALUE):
     logger = logging.getLogger('asrclient')

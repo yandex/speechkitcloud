@@ -236,12 +236,12 @@ def recognize(chunks,
         try:
             advanced_callback = imported_module.advanced_callback
         except AttributeError:
-            print "No advanced callback in the imported module!"
+            print("No advanced callback in the imported module!")
 
         try:
             advanced_utterance_callback = imported_module.advanced_utterance_callback
         except AttributeError:
-            print "No advanced utterrance callback in the imported module!"
+            print("No advanced utterrance callback in the imported module!")
 
 
     class PendingRecognition(object):
@@ -267,9 +267,9 @@ def recognize(chunks,
                     time.sleep(0.01)
                 except Exception as e:
                     if self.pending_answers > 0:
-                        print "check result exception"
-                        print type(e)
-                        print e
+                        print("check result exception")
+                        print(type(e))
+                        print(e)
                         raise e
                     else:
                         return
@@ -293,11 +293,17 @@ def recognize(chunks,
                     self.last_end_time = end_time
                 
                 if advanced_callback is not None:
-                    advanced_callback(response, self.correction_delta)
+                    try:
+                        advanced_callback(response, self.correction_delta)
+                    except Exception as e:
+                        print("Exception in advanced_callback: ", e)
 
             else:
                 if advanced_callback is not None:
-                    advanced_callback(response)
+                    try:
+                        advanced_callback(response)
+                    except Exception as e:
+                        print("Exception in advanced_callback: ", e)
                 return
 
             utterance =  response.recognition[0].normalized.encode('utf-8')
@@ -305,7 +311,10 @@ def recognize(chunks,
             self.logger.info('Chunks from {0} to {1}.'.format(self.utterance_start_index, self.utterance_start_index + self.chunks_answered))
 
             if advanced_utterance_callback is not None:
-                advanced_utterance_callback(response, self.unrecognized_chunks[:self.chunks_answered])
+                try:
+                    advanced_utterance_callback(response, self.unrecognized_chunks[:self.chunks_answered])
+                except Exception as e:
+                    print("Exception in advanced_utterance_callback: ", e)
             elif callback is not None:
                 callback(utterance, start_time, end_time, self.unrecognized_chunks[:self.chunks_answered])
 
@@ -325,8 +334,8 @@ def recognize(chunks,
                     self.resendOnError(e)
             except Exception as e:
                 self.logger.info("dbg send")
-                print type(e)
-                print e
+                print(type(e))
+                print(e)
 
         def reconnectOnError(self):
             global retry_count
