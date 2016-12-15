@@ -10,6 +10,7 @@
 
 // send ConnectionRequest, read ConnectionsResponse.. etc
 // send AddData, read AddDataResponse and so on.
+syntax = "proto2";
 
 package BasicProtobuf;
 

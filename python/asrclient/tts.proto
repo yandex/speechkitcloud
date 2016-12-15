@@ -1,4 +1,5 @@
-import "basic.proto";
+syntax = "proto2";
+
 import "ttsbackend.proto";
 
 package TTS;
@@ -101,5 +102,11 @@ message GenerateRequest
   optional float volume = 32 [default = 1.0];
 
   optional bool chunked = 33 [default = false];
+}
+
+message Feedback
+{
+  required int32 elapsed = 1;
+  required string event = 2;
 }
 

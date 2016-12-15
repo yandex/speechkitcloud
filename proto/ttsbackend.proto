@@ -1,3 +1,5 @@
+syntax = "proto2";
+
 import "basic.proto";
 
 package TTS;
@@ -42,7 +44,7 @@ message Generate
   optional float mgc_postfilter1 = 22;
   optional float mgc_postfilter2 = 23;
 
-  optional bool fast = 24;
+  optional bool chunked = 24; //ex-fast
 }
 
 message GenerateResponse
@@ -52,6 +54,8 @@ message GenerateResponse
     required int32 firstCharPositionInText = 1;
     required int32 bytesLengthInSignal = 2;
     optional string text = 3;
+    optional string postag = 4;
+    optional string homographTag = 5;
   }
   message Phoneme
   {
