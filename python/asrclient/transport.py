@@ -79,7 +79,7 @@ class Transport:
             symbol = self.socket.recv(1)
 
             if len(symbol) == 0:
-                raise TransportError('Backend closed connection (may be you behaived badly?)')
+                raise TransportError('Backend closed connection (may be you behaved badly?)')
 
             assert(len(symbol) == 1), 'Bad symbol len from socket ' + str(len(symbol))
 
