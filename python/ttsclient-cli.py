@@ -4,7 +4,6 @@
 
 import logging
 import click
-import exceptions
 import sys
 
 import asrclient.ttsclient as client
@@ -68,7 +67,7 @@ def main(silent, speaker, texts, textfile=None, list_speakers=False, **kwars):
         client.list_speakers(**kwars)
         sys.exit(0)
     if not speaker:
-        print "Speaker is required. Please, call this script with --list-speakers flag to get speakers list."
+        print("Speaker is required. Please, call this script with --list-speakers flag to get speakers list.")
         sys.exit(1)
     if textfile:
         texts = map(str.strip, textfile.readlines())

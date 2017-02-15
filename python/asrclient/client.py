@@ -426,3 +426,4 @@ def recognize(chunks,
                                                                           seconds_elapsed))
     chunks_per_second = chunks_count / seconds_elapsed
     state.logger.info("Avg. {0} chunks per second".format(chunks_per_second))
+    state.server.close()
