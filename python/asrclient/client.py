@@ -329,9 +329,9 @@ def recognize(chunks,
                 self.server.add_data(chunk)
                 self.pending_answers += 1
             except (DecodeProtobufError, ServerError, TransportError, SocketError) as e:
-                    self.logger.info("Something bad happened, waiting for reconnect!")
-                    time.sleep(1)
-                    self.resendOnError(e)
+                self.logger.exception("Something bad happened, waiting for reconnect!")
+                time.sleep(1)
+                self.resendOnError()
             except Exception as e:
                 self.logger.info("dbg send")
                 print(type(e))
