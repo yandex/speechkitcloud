@@ -75,7 +75,7 @@ class ServerError(RuntimeError):
 
 class ServerConnection(object):
 
-    def __init__(self, host, port, key, app, service, topic, lang, format, uuid, inter_utt_silence, cmn_latency, logger=None, punctuation=True, ipv4=False, capitalize=False, expected_num_count=0):
+    def __init__(self, host, port, key, app, service, topic, lang, format, uuid, inter_utt_silence, cmn_latency, biometry, logger=None, punctuation=True, ipv4=False, capitalize=False, expected_num_count=0):
         self.host = host
         self.port = port
         self.key = key
@@ -86,6 +86,7 @@ class ServerConnection(object):
         self.format = format
         self.uuid = uuid
         self.logger = logger
+        self.biometry = biometry
         self.punctuation = punctuation
         self.inter_utt_silence = inter_utt_silence
         self.cmn_latency = cmn_latency
@@ -140,7 +141,7 @@ class ServerConnection(object):
                                   cmn_latency=self.cmn_latency,
                                   capitalize=self.capitalize,
                                   expected_num_count=self.expected_num_count,
-                                  biometry="children",
+                                  biometry=self.biometry,
                                )
             )
 
@@ -217,6 +218,7 @@ def recognize(chunks,
               lang=DEFAULT_LANG_VALUE,
               inter_utt_silence=DEFAULT_INTER_UTT_SILENCE,
               cmn_latency=DEFAULT_CMN_LATENCY,
+              biometry="",
               uuid=DEFAULT_UUID_VALUE,
               reconnect_delay=DEFAULT_RECONNECT_DELAY,
               reconnect_retry_count=DEFAULT_RECONNECT_RETRY_COUNT,
@@ -247,7 +249,7 @@ def recognize(chunks,
     class PendingRecognition(object):
         def __init__(self):
             self.logger = logging.getLogger('asrclient')
-            self.server = ServerConnection(server, port, key, app, service, model, lang, format, uuid, inter_utt_silence, cmn_latency, self.logger, not nopunctuation, ipv4, capitalize, expected_num_count)
+            self.server = ServerConnection(server, port, key, app, service, model, lang, format, uuid, inter_utt_silence, cmn_latency, biometry, self.logger, not nopunctuation, ipv4, capitalize, expected_num_count)
             self.unrecognized_chunks = []
             self.retry_count = 0
             self.pending_answers = 0
