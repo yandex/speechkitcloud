@@ -10,9 +10,14 @@ import time
 from uuid import uuid4 as randomUuid
 from socket import error as SocketError
 from google.protobuf.message import DecodeError as DecodeProtobufError
-from basic_pb2 import ConnectionResponse
-from voiceproxy_pb2 import ConnectionRequest, AddData, AddDataResponse, AdvancedASROptions
-from transport import Transport, TransportError
+if sys.version_info >= (3, 0):
+    from .basic_pb2 import ConnectionResponse
+    from .voiceproxy_pb2 import ConnectionRequest, AddData, AddDataResponse, AdvancedASROptions
+    from .transport import Transport, TransportError
+else:
+    from basic_pb2 import ConnectionResponse
+    from voiceproxy_pb2 import ConnectionRequest, AddData, AddDataResponse, AdvancedASROptions
+    from transport import Transport, TransportError
 from concurrent.futures import ThreadPoolExecutor, Future
 
 
