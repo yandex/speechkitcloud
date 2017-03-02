@@ -8,11 +8,16 @@ import time
 import random
 import logging
 
-from transport import Transport
-
-from basic_pb2 import ConnectionResponse
-from ttsbackend_pb2 import Generate, GenerateResponse
-from tts_pb2 import GenerateRequest, ConnectionRequest, ParamsRequest, ParamsResponse 
+if sys.version_info >= (3, 0):
+    from .transport import Transport
+    from .basic_pb2 import ConnectionResponse
+    from .ttsbackend_pb2 import Generate, GenerateResponse
+    from .tts_pb2 import GenerateRequest, ConnectionRequest, ParamsRequest, ParamsResponse
+else:
+    from transport import Transport
+    from basic_pb2 import ConnectionResponse
+    from ttsbackend_pb2 import Generate, GenerateResponse
+    from tts_pb2 import GenerateRequest, ConnectionRequest, ParamsRequest, ParamsResponse
 
 from uuid import uuid4 as randomUuid
 
