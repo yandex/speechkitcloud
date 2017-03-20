@@ -75,7 +75,7 @@ class ServerError(RuntimeError):
 
 class ServerConnection(object):
 
-    def __init__(self, host, port, key, app, service, topic, lang, format, uuid, inter_utt_silence, cmn_latency, biometry, logger=None, punctuation=True, ipv4=False, capitalize=False, expected_num_count=0):
+    def __init__(self, host, port, key, app, service, topic, lang, format, uuid, inter_utt_silence, cmn_latency, biometry, logger=None, punctuation=True, ipv4=False, capitalize=False, expected_num_count=0, snr=False):
         self.host = host
         self.port = port
         self.key = key
@@ -93,6 +93,7 @@ class ServerConnection(object):
         self.ipv4 = ipv4
         self.capitalize = capitalize
         self.expected_num_count = expected_num_count
+        self.snr = snr
 
         self.log("uuid={0}".format(self.uuid))
 
@@ -142,6 +143,7 @@ class ServerConnection(object):
                                   capitalize=self.capitalize,
                                   expected_num_count=self.expected_num_count,
                                   biometry=self.biometry,
+                                  use_snr=self.snr,
                                )
             )
 
@@ -227,7 +229,8 @@ def recognize(chunks,
               nopunctuation=False,
               realtime=False,
               capitalize=False,
-              expected_num_count=0):
+              expected_num_count=0,
+              snr=False):
 
     advanced_utterance_callback = None
     imported_module = None
@@ -249,7 +252,7 @@ def recognize(chunks,
     class PendingRecognition(object):
         def __init__(self):
             self.logger = logging.getLogger('asrclient')
-            self.server = ServerConnection(server, port, key, app, service, model, lang, format, uuid, inter_utt_silence, cmn_latency, biometry, self.logger, not nopunctuation, ipv4, capitalize, expected_num_count)
+            self.server = ServerConnection(server, port, key, app, service, model, lang, format, uuid, inter_utt_silence, cmn_latency, biometry, self.logger, not nopunctuation, ipv4, capitalize, expected_num_count, snr)
             self.unrecognized_chunks = []
             self.retry_count = 0
             self.pending_answers = 0
@@ -259,6 +262,7 @@ def recognize(chunks,
             self.future = None
             self.last_end_time = 0
             self.correction_delta = 0
+            self.last_chunk_sent = False
 
         def check_result(self):
             while True:
@@ -266,7 +270,10 @@ def recognize(chunks,
                     response = self.server.get_response_if_ready()
                     if response is not None:
                         self.on_response(response)
-                    time.sleep(0.01)
+                    if self.last_chunk_sent and self.pending_answers <= 0:
+                        return
+                    else:
+                        time.sleep(0.01)
                 except Exception as e:
                     if self.pending_answers > 0:
                         print("check result exception")
@@ -299,7 +306,6 @@ def recognize(chunks,
                         advanced_callback(response, self.correction_delta)
                     except Exception as e:
                         print("Exception in advanced_callback: ", e)
-
             else:
                 if advanced_callback is not None:
                     try:
@@ -308,7 +314,7 @@ def recognize(chunks,
                         print("Exception in advanced_callback: ", e)
                 return
 
-            utterance =  response.recognition[0].normalized.encode('utf-8')
+            utterance = response.recognition[0].normalized.encode('utf-8') if response.recognition else u""
 
             self.logger.info('Chunks from {0} to {1}.'.format(self.utterance_start_index, self.utterance_start_index + self.chunks_answered))
 
@@ -330,6 +336,8 @@ def recognize(chunks,
             try:
                 self.server.add_data(chunk)
                 self.pending_answers += 1
+                if chunk is None:
+                    self.last_chunk_sent = True
             except (DecodeProtobufError, ServerError, TransportError, SocketError) as e:
                 self.logger.exception("Something bad happened, waiting for reconnect!")
                 time.sleep(1)

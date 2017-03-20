@@ -62,6 +62,9 @@ message AdvancedASROptions
   // currently supports "gender", "age", "group", "language" and combination with ",", like "age,gender"
   // checkout BiometryResult
   optional string biometry = 24;
+
+  // turn on confidence rescoring procedure
+  optional bool use_snr = 25 [default = false];
 }
 
 message ConnectionRequest

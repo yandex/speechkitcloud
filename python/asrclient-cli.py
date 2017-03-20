@@ -96,7 +96,10 @@ except ImportError:
 @click.option('--biometry',
               help='Enable biometry , "gender", "age", "group", "language" or combine with "," like "age,gender"',
               default="")
-
+@click.option('--snr',
+              default=False,
+              is_flag=True,
+              help='Deprecated')
 def main(chunk_size, start_with_chunk, max_chunks_count, record, files, silent, **kwars):
     if not silent:
         logging.basicConfig(level=logging.INFO)
