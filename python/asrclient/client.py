@@ -10,9 +10,14 @@ import time
 from uuid import uuid4 as randomUuid
 from socket import error as SocketError
 from google.protobuf.message import DecodeError as DecodeProtobufError
-from basic_pb2 import ConnectionResponse
-from voiceproxy_pb2 import ConnectionRequest, AddData, AddDataResponse, AdvancedASROptions
-from transport import Transport, TransportError
+if sys.version_info >= (3, 0):
+    from .basic_pb2 import ConnectionResponse
+    from .voiceproxy_pb2 import ConnectionRequest, AddData, AddDataResponse, AdvancedASROptions
+    from .transport import Transport, TransportError
+else:
+    from basic_pb2 import ConnectionResponse
+    from voiceproxy_pb2 import ConnectionRequest, AddData, AddDataResponse, AdvancedASROptions
+    from transport import Transport, TransportError
 from concurrent.futures import ThreadPoolExecutor, Future
 
 
@@ -314,7 +319,6 @@ def recognize(chunks,
                         print("Exception in advanced_callback: ", e)
                 return
 
-            utterance = response.recognition[0].normalized.encode('utf-8') if response.recognition else u""
 
             self.logger.info('Chunks from {0} to {1}.'.format(self.utterance_start_index, self.utterance_start_index + self.chunks_answered))
 
@@ -324,7 +328,11 @@ def recognize(chunks,
                 except Exception as e:
                     print("Exception in advanced_utterance_callback: ", e)
             elif callback is not None:
-                callback(utterance, start_time, end_time, self.unrecognized_chunks[:self.chunks_answered])
+                if (len(response.recognition) > 0):
+                    start_time = response.recognition[0].align_info.start_time + self.correction_delta
+                    end_time = response.recognition[0].align_info.end_time + self.correction_delta
+                    utterance = response.recognition[0].normalized.encode('utf-8')
+                    callback(utterance, start_time, end_time, self.unrecognized_chunks[:self.chunks_answered])
 
             del self.unrecognized_chunks[:self.chunks_answered]
             self.utterance_start_index += self.chunks_answered
