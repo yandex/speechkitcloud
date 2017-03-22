@@ -62,6 +62,9 @@ message AdvancedASROptions
   // currently supports "gender", "age", "group", "language" and combination with ",", like "age,gender"
   // checkout BiometryResult
   optional string biometry = 24;
+
+  // turn on confidence rescoring procedure
+  optional bool use_snr = 25 [default = false];
 }
 
 message ConnectionRequest
@@ -164,11 +167,29 @@ message BiometryResult
     optional string tag = 3;
 }
 
+message SnrFeature
+{
+    optional string name = 1;
+
+    optional float value = 2;
+}
+
+message SnrInfo
+{
+    optional string normalizedText = 1;
+
+    optional float snrValue = 2;
+
+    repeated SnrFeature features = 3;
+}
+
 message Metainfo
 {
     required float minBeam = 1;
 
     required float maxBeam = 2;
+    
+    repeated SnrInfo snrInfos = 3;
 }
 
 message AddDataResponse
