@@ -190,6 +190,16 @@ message Metainfo
     required float maxBeam = 2;
     
     repeated SnrInfo snrInfos = 3;
+
+    optional string topic = 4;
+
+    optional string lang = 5;
+
+    optional string version = 6;
+    
+    optional string load_timestamp = 7;
+
+    optional int32 snrResponseCode = 8;
 }
 
 message AddDataResponse
