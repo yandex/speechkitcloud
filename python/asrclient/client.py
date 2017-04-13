@@ -199,7 +199,10 @@ class ServerConnection(object):
 
 
     def get_response_if_ready(self):
-        response = self.t.recvProtobufIfAny(AddDataResponse)
+        response = self.t.recvProtobufIfAny(AddDataResponse, ConnectionResponse)
+
+        if isinstance(response, ConnectionResponse):
+            raise ServerError("Bad AddData response: %s %s" % (response.responseCode, response.message))
 
         if response is not None:
             if response.responseCode != 200:

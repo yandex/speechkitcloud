@@ -133,18 +133,24 @@ class Transport:
     def sendProtobuf(self, protobuf):
         self.sendMessage(protobuf.SerializeToString())
 
-    def recvProtobuf(self, protobufType):
-        response = protobufType()
+    def recvProtobuf(self, *protobufTypes):
+        savedException = None
+
         message = self.recvMessage()
+        for protoType in protobufTypes:
+            response = protoType()
+            try:
+                response.ParseFromString(message)
+                return response
+            except Exception as exc:
+                savedException = exc
 
-        response.ParseFromString(message)
+        raise savedException
 
-        return response
-
-    def recvProtobufIfAny(self, protobuf):
+    def recvProtobufIfAny(self, *protobuf):
         rlist, wlist, xlist = select.select([self.socket], [], [self.socket], 0)
         if (len(rlist)):
-            return self.recvProtobuf(protobuf)
+            return self.recvProtobuf(*protobuf)
         else:
             return None
 
