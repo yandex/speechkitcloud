@@ -200,6 +200,8 @@ message Metainfo
     optional string load_timestamp = 7;
 
     optional int32 snrResponseCode = 8;
+    
+    optional bool snrWasUsed = 9;
 }
 
 message AddDataResponse
