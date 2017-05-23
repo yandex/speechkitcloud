@@ -75,6 +75,10 @@ message GenerateResponse
   optional BasicProtobuf.ConnectionResponse.ResponseCode responseCode = 5;
   //Error message
   optional string message = 6; 
+  
+  //Lingware information
+  optional string lang = 7;
+  optional string version = 8;
 }
 
 message StopGeneration
