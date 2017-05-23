@@ -201,7 +201,7 @@ message Metainfo
 
     optional int32 snrResponseCode = 8;
     
-    optional bool snrWasUsed = 9;
+    optional bool snr_performed_rescoring = 9;
 }
 
 message AddDataResponse
