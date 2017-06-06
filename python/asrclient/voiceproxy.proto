@@ -59,7 +59,7 @@ message AdvancedASROptions
   // </grammar>
   optional string srgs = 23;
 
-  // currently supports "gender", "age", "group", "language" and combination with ",", like "age,gender"
+  // currently supports "gender", "age", "group", "language", "children", "emotion" and combination with ",", like "age,gender"
   // checkout BiometryResult
   optional string biometry = 24;
 
@@ -77,6 +77,8 @@ message ConnectionRequest
   required string serviceName = 3; // "asr_dictation", etc.
 
   required string uuid = 4;
+
+  optional string yandexuid = 21;
 
   required string apiKey = 5;
 
@@ -200,6 +202,8 @@ message Metainfo
     optional string load_timestamp = 7;
 
     optional int32 snrResponseCode = 8;
+
+    optional bool snr_performed_rescoring = 9;
 }
 
 message AddDataResponse

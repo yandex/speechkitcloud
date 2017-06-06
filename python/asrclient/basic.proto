@@ -32,6 +32,7 @@ message ConnectionResponse
     InternalError = 500;
     InvalidKey = 429;
     InvalidRequestParams = 406;
+    UnsupportedMediaType = 415;
 	}
 }
 
