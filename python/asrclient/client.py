@@ -6,6 +6,7 @@ import os
 import logging
 import sys
 import time
+import codecs
 
 from uuid import uuid4 as randomUuid
 from socket import error as SocketError
@@ -80,7 +81,7 @@ class ServerError(RuntimeError):
 
 class ServerConnection(object):
 
-    def __init__(self, host, port, key, app, service, topic, lang, format, uuid, inter_utt_silence, cmn_latency, biometry, logger=None, punctuation=True, ipv4=False, capitalize=False, expected_num_count=0, snr=False):
+    def __init__(self, host, port, key, app, service, topic, lang, format, uuid, inter_utt_silence, cmn_latency, biometry, logger=None, punctuation=True, ipv4=False, capitalize=False, expected_num_count=0, snr=False, grammar_file=""):
         self.host = host
         self.port = port
         self.key = key
@@ -99,6 +100,7 @@ class ServerConnection(object):
         self.capitalize = capitalize
         self.expected_num_count = expected_num_count
         self.snr = snr
+        self.grammar_file = grammar_file
 
         self.log("uuid={0}".format(self.uuid))
 
@@ -130,6 +132,17 @@ class ServerConnection(object):
         return self.session_id
 
     def send_init_request(self):
+        advancedASROptions = AdvancedASROptions(
+            utterance_silence=int(self.inter_utt_silence),
+            cmn_latency=self.cmn_latency,
+            capitalize=self.capitalize,
+            expected_num_count=self.expected_num_count,
+            biometry=self.biometry,
+            use_snr=self.snr,
+        )
+        if len(self.grammar_file) > 0:
+            with codecs.open(self.grammar_file, encoding='utf-8') as grammar:
+                advancedASROptions.grammar.extend(grammar.readlines())
         request = ConnectionRequest(
             speechkitVersion='',
             serviceName=self.service,
@@ -142,14 +155,7 @@ class ServerConnection(object):
             lang=self.lang,
             format=self.format,
             punctuation=self.punctuation,
-            advancedASROptions=AdvancedASROptions(
-                                  utterance_silence=int(self.inter_utt_silence),
-                                  cmn_latency=self.cmn_latency,
-                                  capitalize=self.capitalize,
-                                  expected_num_count=self.expected_num_count,
-                                  biometry=self.biometry,
-                                  use_snr=self.snr,
-                               )
+            advancedASROptions=advancedASROptions
             )
 
         self.t.sendProtobuf(request)
@@ -238,7 +244,8 @@ def recognize(chunks,
               realtime=False,
               capitalize=False,
               expected_num_count=0,
-              snr=False):
+              snr=False,
+              grammar_file=""):
 
     advanced_utterance_callback = None
     imported_module = None
@@ -260,7 +267,7 @@ def recognize(chunks,
     class PendingRecognition(object):
         def __init__(self):
             self.logger = logging.getLogger('asrclient')
-            self.server = ServerConnection(server, port, key, app, service, model, lang, format, uuid, inter_utt_silence, cmn_latency, biometry, self.logger, not nopunctuation, ipv4, capitalize, expected_num_count, snr)
+            self.server = ServerConnection(server, port, key, app, service, model, lang, format, uuid, inter_utt_silence, cmn_latency, biometry, self.logger, not nopunctuation, ipv4, capitalize, expected_num_count, snr, grammar_file)
             self.unrecognized_chunks = []
             self.retry_count = 0
             self.pending_answers = 0
