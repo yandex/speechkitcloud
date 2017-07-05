@@ -142,7 +142,7 @@ class ServerConnection(object):
         )
         if len(self.grammar_file) > 0:
             with codecs.open(self.grammar_file, encoding='utf-8') as grammar:
-                advancedASROptions.grammar.extend(grammar.readlines())
+                advancedASROptions.srgs = grammar.read()
         request = ConnectionRequest(
             speechkitVersion='',
             serviceName=self.service,
