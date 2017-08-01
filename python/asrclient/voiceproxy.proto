@@ -183,6 +183,10 @@ message SnrInfo
     optional float snrValue = 2;
 
     repeated SnrFeature features = 3;
+
+    optional string featureSlices = 4;
+
+    optional int32 originalCandidateIndex = 5;
 }
 
 message Metainfo
