@@ -12,11 +12,11 @@ from socket import error as SocketError
 from google.protobuf.message import DecodeError as DecodeProtobufError
 if sys.version_info >= (3, 0):
     from .basic_pb2 import ConnectionResponse
-    from .voiceproxy_pb2 import ConnectionRequest, AddData, AddDataResponse, AdvancedASROptions
+    from .voiceproxy_pb2 import ConnectionRequest, AddData, AddDataResponse, AdvancedASROptions, SnrFlag
     from .transport import Transport, TransportError
 else:
     from basic_pb2 import ConnectionResponse
-    from voiceproxy_pb2 import ConnectionRequest, AddData, AddDataResponse, AdvancedASROptions
+    from voiceproxy_pb2 import ConnectionRequest, AddData, AddDataResponse, AdvancedASROptions, SnrFlag
     from transport import Transport, TransportError
 from concurrent.futures import ThreadPoolExecutor, Future
 
@@ -80,7 +80,7 @@ class ServerError(RuntimeError):
 
 class ServerConnection(object):
 
-    def __init__(self, host, port, key, app, service, topic, lang, format, uuid, inter_utt_silence, cmn_latency, biometry, logger=None, punctuation=True, ipv4=False, capitalize=False, expected_num_count=0, snr=False):
+    def __init__(self, host, port, key, app, service, topic, lang, format, uuid, inter_utt_silence, cmn_latency, biometry, logger=None, punctuation=True, ipv4=False, capitalize=False, expected_num_count=0, snr=False, snr_flags=None):
         self.host = host
         self.port = port
         self.key = key
@@ -99,6 +99,13 @@ class ServerConnection(object):
         self.capitalize = capitalize
         self.expected_num_count = expected_num_count
         self.snr = snr
+        
+        if not snr_flags:
+            self.snr_flags = []
+        elif isinstance(snr_flags, str) or isinstance(snr_flags, unicode):
+            self.snr_flags = [a.split("=") for a in snr_flags.split(",")]
+        else:
+            self.snr_flags = snr_flags
 
         self.log("uuid={0}".format(self.uuid))
 
@@ -149,6 +156,7 @@ class ServerConnection(object):
                                   expected_num_count=self.expected_num_count,
                                   biometry=self.biometry,
                                   use_snr=self.snr,
+                                  snr_flags=[SnrFlag(name=a[0], value=a[1]) for a in self.snr_flags]
                                )
             )
 
@@ -238,7 +246,8 @@ def recognize(chunks,
               realtime=False,
               capitalize=False,
               expected_num_count=0,
-              snr=False):
+              snr=False,
+              snr_flags=None):
 
     advanced_utterance_callback = None
     imported_module = None
@@ -260,7 +269,7 @@ def recognize(chunks,
     class PendingRecognition(object):
         def __init__(self):
             self.logger = logging.getLogger('asrclient')
-            self.server = ServerConnection(server, port, key, app, service, model, lang, format, uuid, inter_utt_silence, cmn_latency, biometry, self.logger, not nopunctuation, ipv4, capitalize, expected_num_count, snr)
+            self.server = ServerConnection(server, port, key, app, service, model, lang, format, uuid, inter_utt_silence, cmn_latency, biometry, self.logger, not nopunctuation, ipv4, capitalize, expected_num_count, snr, snr_flags)
             self.unrecognized_chunks = []
             self.retry_count = 0
             self.pending_answers = 0

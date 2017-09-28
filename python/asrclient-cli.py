@@ -100,6 +100,10 @@ except ImportError:
               default=False,
               is_flag=True,
               help='Deprecated')
+@click.option('--snr_flags',
+              default="",
+              type=str,
+              help='Deprecated')
 def main(chunk_size, start_with_chunk, max_chunks_count, record, files, silent, **kwars):
     if not silent:
         logging.basicConfig(level=logging.INFO)
