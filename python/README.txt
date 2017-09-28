@@ -4,7 +4,56 @@ This is a streaming client for Yandex speech recognition service (aka Yandex ASR
 Comparing to http-api it provides much more info about a recognized text and the recognition process itself.
 Also it has no limit for an input file length.
 
-Install:
+Install to Mac OS:
+
+Install python pip & python protobuf using as example MacPorts
+(opensource software package manager, instruction for installation here: https://www.macports.org/install.php):
+bash-3.2$ sudo port install git py27-pip py27-protobuf
+...
+Continue? [Y/n]: Y
+...
+
+After install PIP & protobuf compilers can checkout speechkit client:
+
+bash-3.2$ git clone https://github.com/yandex/speechkitcloud
+...
+bash-3.2$ cd speechkitcloud/python
+bash-3.2$ protoc -I=asrclient --python_out=asrclient asrclient/*.proto
+bash-3.2$ python ./setup.py sdist
+...
+bash-3.2$ cd dist
+bash-3.2$ ls
+asrclient-0.5.0.tar.gz
+
+You can have different result filename (more fresh version, etc), use it for pip install 
+
+bash-3.2$ sudo pip install asrclient-0.5.0.tar.gz
+...
+Successfully installed asrclient-0.5.0 futures-3.1.1
+
+If as default used system macos python, than asrclient-cli.py & ttsclient-cli.py installed into folder
+/Library/Frameworks/Python.framework/Versions/2.7/bin/
+else (as default used python from macports) search it inside folder
+/opt/local/Library/Frameworks/Python.framework/Versions/2.7/bin/
+ 
+Short help can be received via --help option:
+bash-3.2$ /Library/Frameworks/Python.framework/Versions/2.7/bin/asrclient-cli.py --help
+bash-3.2$ /Library/Frameworks/Python.framework/Versions/2.7/bin/ttsclient-cli.py --help
+or for macports python installation:
+bash-3.2$ /opt/local/Library/Frameworks/Python.framework/Versions/2.7/bin/asrclient-cli.py --help
+bash-3.2$ /opt/local/Library/Frameworks/Python.framework/Versions/2.7/bin/ttsclient-cli.py --help
+
+XCode TROUBLESHOOTING:
+If after installing macports got error:
+Warning: xcodebuild exists but failed to execute
+Warning: Xcode does not appear to be installed; most ports will likely fail to build.
+
+use next commands for fix it:
+sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+xcodebuild -license
+
+
+Install to Ubuntu/Debian:
 
 You need to provide some python dependencies. Suggest something like this...
 
