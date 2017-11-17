@@ -7,6 +7,7 @@ import logging
 import sys
 import time
 import codecs
+import importlib
 
 from uuid import uuid4 as randomUuid
 from socket import error as SocketError
@@ -261,7 +262,7 @@ def recognize(chunks,
     imported_module = None
 
     if callback_module is not None:
-        imported_module = __import__(callback_module, globals(), locals(), [], -1)
+        imported_module = importlib.import_module(callback_module)
 
         try:
             advanced_callback = imported_module.advanced_callback
