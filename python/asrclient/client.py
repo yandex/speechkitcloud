@@ -82,7 +82,7 @@ class ServerError(RuntimeError):
 
 class ServerConnection(object):
 
-    def __init__(self, host, port, key, app, service, topic, lang, format, uuid, inter_utt_silence, cmn_latency, biometry, logger=None, punctuation=True, ipv4=False, capitalize=False, expected_num_count=0, snr=False, snr_flags=None, grammar_file=""):
+    def __init__(self, host, port, key, app, service, topic, lang, format, uuid, inter_utt_silence, cmn_latency, biometry, logger=None, punctuation=True, ipv4=False, capitalize=False, expected_num_count=0, snr=False, snr_flags=None, grammar_file="", disable_antimat_normalizer=False):
         self.host = host
         self.port = port
         self.key = key
@@ -101,6 +101,7 @@ class ServerConnection(object):
         self.capitalize = capitalize
         self.expected_num_count = expected_num_count
         self.snr = snr
+        self.disable_antimat_normalizer = disable_antimat_normalizer
         
         if not snr_flags:
             self.snr_flags = []
@@ -165,6 +166,7 @@ class ServerConnection(object):
             lang=self.lang,
             format=self.format,
             punctuation=self.punctuation,
+            disableAntimatNormalizer=self.disable_antimat_normalizer,
             advancedASROptions=advancedASROptions
         )
 
@@ -256,6 +258,7 @@ def recognize(chunks,
               expected_num_count=0,
               snr=False,
               snr_flags=None,
+              disable_antimat_normalizer=False,
               grammar_file=""):
 
     advanced_utterance_callback = None
@@ -279,7 +282,7 @@ def recognize(chunks,
         def __init__(self):
             self.logger = logging.getLogger('asrclient')
             
-            self.server = ServerConnection(server, port, key, app, service, model, lang, format, uuid, inter_utt_silence, cmn_latency, biometry, self.logger, not nopunctuation, ipv4, capitalize, expected_num_count, snr, snr_flags, grammar_file)
+            self.server = ServerConnection(server, port, key, app, service, model, lang, format, uuid, inter_utt_silence, cmn_latency, biometry, self.logger, not nopunctuation, ipv4, capitalize, expected_num_count, snr, snr_flags, grammar_file, disable_antimat_normalizer)
             self.unrecognized_chunks = []
             self.retry_count = 0
             self.pending_answers = 0
