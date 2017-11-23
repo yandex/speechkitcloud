@@ -107,7 +107,7 @@ except ImportError:
 @click.option('--grammar-file',
               default="",
               help='Custom grammar, can be list of lines or xml file description')
-click.option('--disable-antimat-normalizer',
+@click.option('--disable-antimat-normalizer',
               default=False,
               is_flag=True,
               help='Swear words are not censored out.')
