@@ -107,6 +107,10 @@ except ImportError:
 @click.option('--grammar-file',
               default="",
               help='Custom grammar, can be list of lines or xml file description')
+@click.option('--disable-antimat-normalizer',
+              default=False,
+              is_flag=True,
+              help='Swear words are not censored out.')
 def main(chunk_size, start_with_chunk, max_chunks_count, record, files, silent, **kwars):
     if not silent:
         logging.basicConfig(level=logging.INFO)
