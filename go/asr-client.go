@@ -3,17 +3,18 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"errors"
 	"flag"
 	"fmt"
-	"github.com/golang/protobuf/proto"
-	"github.com/yandex/speechkitcloud/go/BasicProtobuf"
-	"github.com/yandex/speechkitcloud/go/VoiceProxyProtobuf"
 	"io"
 	"log"
 	"net"
 	"os"
 	"strconv"
+
+	"github.com/golang/protobuf/proto"
+
+	"github.com/yandex/speechkitcloud/go/BasicProtobuf"
+	"github.com/yandex/speechkitcloud/go/VoiceProxyProtobuf"
 )
 
 type Debug bool
@@ -26,24 +27,29 @@ func (d Debug) Printf(s string, a ...interface{}) {
 
 var dbg Debug
 
-func sendData(conn io.Writer, data []byte) (int, error) {
+func sendData(conn io.Writer, data []byte) int {
 	written1, err := fmt.Fprintf(conn, "%x\r\n", len(data))
+	check("sendData / fmt.Fprintf", err)
+
 	written2, err := conn.Write(data)
-	return written1 + 2 + written2, err
+	check("sendData / conn.Write", err)
+	return written1 + 2 + written2
 }
 
-func sendProtoMessage(conn io.Writer, message proto.Message) (int, error) {
+func sendProtoMessage(conn io.Writer, message proto.Message) int {
 	data, err := proto.Marshal(message)
 	check("sendProtoMessage / proto.Marshal", err)
-	written, err := sendData(conn, data)
-	return written, err
+	written := sendData(conn, data)
+	return written
 }
 
-func recvData(connReader *bufio.Reader) ([]byte, error) {
+func recvData(connReader *bufio.Reader) []byte {
 	resp, err := connReader.ReadString('\n')
+	check("recvData / connReader.ReadString", err)
 	if len(resp) < 2 {
-		return nil, errors.New("recvData / no length line found")
+		log.Fatal("recvData / no length line found")
 	}
+
 	connRespProtoLength, err := strconv.ParseInt(resp[:len(resp)-2], 16, 64)
 	check("recvData / strconv.ParseInt", err)
 
@@ -52,16 +58,12 @@ func recvData(connReader *bufio.Reader) ([]byte, error) {
 	buffer := make([]byte, int(connRespProtoLength))
 	_, err = io.ReadFull(connReader, buffer)
 	check("recvData / io.ReadFull", err)
-	return buffer, err
+	return buffer
 }
 
-func recvProtoMessage(connReader *bufio.Reader, message proto.Message) error {
-	buffer, err := recvData(connReader)
-	check("recvProtoMessage	/ recvData", err)
-
-	err = proto.Unmarshal(buffer, message)
+func recvProtoMessage(connReader *bufio.Reader, message proto.Message) {
+	err := proto.Unmarshal(recvData(connReader), message)
 	check("recvProtoMessage / proto.Unmarshal ", err)
-	return err
 }
 
 func check(id interface{}, err error) {
@@ -88,6 +90,7 @@ func main() {
 	if len(flag.Args()) == 0 {
 		log.Fatal("No input file!")
 	}
+
 	fileName := flag.Args()[0]
 
 	connectionString := fmt.Sprintf("%v:%v", *serverPtr, *portPtr)
@@ -132,12 +135,10 @@ func main() {
 		Format:           proto.String(*formatPtr),
 	}
 
-	_, err = sendProtoMessage(conn, initProto)
-	check(5, err)
+	sendProtoMessage(conn, initProto)
 
 	connRespProto := &BasicProtobuf.ConnectionResponse{}
-	err = recvProtoMessage(reader, connRespProto)
-	check(9, err)
+	recvProtoMessage(reader, connRespProto)
 
 	dbg.Printf(">> done reading connection response proto\n")
 	dbg.Printf(">> connRespProto { %v}\n", connRespProto)
@@ -165,34 +166,30 @@ func main() {
 			if readCount > 0 {
 				dbg.Printf(">> sending chunk %d\n", chunkCount)
 				addDataProto := &VoiceProxyProtobuf.AddData{LastChunk: proto.Bool(false), AudioData: chunkBuff}
-				_, err = sendProtoMessage(conn, addDataProto)
-				check(11, err)
+				sendProtoMessage(conn, addDataProto)
 				chunkCount++
 			}
 		}
 		lastChunkProto := &VoiceProxyProtobuf.AddData{LastChunk: proto.Bool(true)}
-		_, err = sendProtoMessage(conn, lastChunkProto)
-		check(13, err)
+		sendProtoMessage(conn, lastChunkProto)
 	}()
 
 	var loopCounter int32
 	for err == nil && loopCounter < expectedChunksCount {
 		dbg.Printf(">> recv proto loop %v/%v\n", loopCounter, expectedChunksCount)
 		addDataRespProto := &VoiceProxyProtobuf.AddDataResponse{}
-		err = recvProtoMessage(reader, addDataRespProto)
+		recvProtoMessage(reader, addDataRespProto)
 		dbg.Printf(">> addDataRespProto { %v}\n", addDataRespProto)
 
 		if err == nil {
 			loopCounter += addDataRespProto.GetMessagesCount()
 			dbg.Printf(">> loopCounter increased, now %v/%v\n", loopCounter, expectedChunksCount)
 			recognitions := addDataRespProto.GetRecognition()
-			if recognitions != nil && len(recognitions) > 0 {
+			if len(recognitions) > 0 {
 				fmt.Printf("got result: %v; endOfUtt: %v\n", addDataRespProto.GetRecognition()[0].GetNormalized(), addDataRespProto.GetEndOfUtt())
 			}
 		}
 	}
-
-	check(14, err)
 
 	fmt.Printf("Done, all fine!\n")
 }
