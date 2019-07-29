@@ -258,7 +258,7 @@
         }
     };
 
-    ya.speechkit.SpeechRecognition = SpeechRecognition;
+    namespace.ya.speechkit.SpeechRecognition = SpeechRecognition;
 
     /**
      * Функция для распознавания коротких фрагментов речи.
